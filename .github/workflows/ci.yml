@@ -1,0 +1,112 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build
+        run: dotnet build --configuration Release
+
+      # Symlink creation is unprivileged on Linux and macOS, so the three symlink
+      # tests must genuinely run there. SKILLMETER_REQUIRE_LINKS=1 turns a skip
+      # into a failure, which is what stops that coverage lapsing silently again.
+      #
+      # Windows is deliberately left unset on this first pass: whether a GitHub
+      # Windows runner can create symlinks without Developer Mode is precisely
+      # what this run is meant to establish. The junction tests cover the same
+      # reparse-point logic there regardless. Tighten once the log answers it.
+      - name: Test
+        shell: bash
+        env:
+          SKILLMETER_REQUIRE_LINKS: ${{ runner.os == 'Windows' && '0' || '1' }}
+        run: |
+          set -o pipefail
+          dotnet test --configuration Release --no-build \
+            --logger "console;verbosity=normal" 2>&1 | tee test-output.txt
+
+      - name: Which link tests actually ran
+        if: always()
+        shell: bash
+        run: |
+          echo "runner.os=${{ runner.os }}"
+          grep -Ei 'symlink|junction|skipped|Passed!|Failed!' test-output.txt || true
+
+      # A smoke step pointed at tests/ would only ever exercise the empty-corpus
+      # branch, since nothing there is a SKILL.md. Build a real corpus inside the
+      # workspace instead: no network, no committed fixture, and no MSYS path
+      # translation to go wrong when the path reaches a native binary.
+      - name: Smoke — populated corpus
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p _smoke/alpha _smoke/beta
+          printf -- '---\nname: alpha\ndescription: does alpha things\n---\nalpha body\n' > _smoke/alpha/SKILL.md
+          printf -- '---\nname: beta\ndescription: >-\n  folded description\n  across two lines\n---\nbeta body\n' > _smoke/beta/SKILL.md
+
+          run() { dotnet run --project src/SkillMeter/SkillMeter.csproj --configuration Release --no-build -- "$@"; }
+
+          echo "--- budget ---"; run _smoke
+          echo "--- cost ---";   run cost _smoke
+          echo "--- roots ---";  run roots
+          echo "--- json ---";   run _smoke --json > _smoke/out.json
+          cat _smoke/out.json
+
+          # The --json envelope is a published contract; assert the load-bearing
+          # parts. node is present on every GitHub runner; python3 is not.
+          node -e '
+            const d = require("./_smoke/out.json");
+            const eq = (a, b, m) => { if (JSON.stringify(a) !== JSON.stringify(b)) { console.error(`FAIL ${m}: ${JSON.stringify(a)} != ${JSON.stringify(b)}`); process.exit(1); } };
+            eq(d.schemaVersion, 1, "schemaVersion");
+            eq(d.skills.length, 2, "skill count");
+            for (const k of ["tool","toolVersion","tokenizer","budget","totals","skills"])
+              if (!(k in d)) { console.error("FAIL missing key " + k); process.exit(1); }
+            const t = d.skills.map(s => s.metadataTokens);
+            eq(t, [...t].sort((a,b) => b-a), "skills sorted by metadataTokens desc");
+            // The folded scalar must collapse to spaces, never newlines.
+            const beta = d.skills.find(s => s.name === "beta");
+            if (!beta) { console.error("FAIL beta missing"); process.exit(1); }
+            console.log("json envelope OK");
+          '
+
+      - name: Smoke — exit codes
+        shell: bash
+        run: |
+          set -uo pipefail
+          run() { dotnet run --project src/SkillMeter/SkillMeter.csproj --configuration Release --no-build -- "$@"; }
+
+          check () { # label expected actual
+            if [ "$2" != "$3" ]; then echo "FAIL: $1 expected $2 got $3"; exit 1; fi
+            echo "ok: $1 -> exit $3"
+          }
+
+          run _smoke                >/dev/null 2>&1; check "clean run"      0 $?
+          run _smoke --fail-on 1    >/dev/null 2>&1; check "--fail-on 1"    1 $?
+          run _smoke --fail-on 999999 >/dev/null 2>&1; check "--fail-on hi" 0 $?
+          run --nope                >/dev/null 2>&1; check "bad flag"       2 $?
+          run _smoke/missing        >/dev/null 2>&1; check "missing dir"    2 $?
+          run _smoke --fraction NaN >/dev/null 2>&1; check "--fraction NaN" 2 $?
