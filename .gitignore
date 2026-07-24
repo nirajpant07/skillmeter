@@ -1,0 +1,14 @@
+bin/
+obj/
+artifacts/
+staging/
+dist/
+*.user
+*.suo
+.vs/
+.idea/
+.vscode/
+node_modules/
+*.nupkg
+*.tgz
+.DS_Store

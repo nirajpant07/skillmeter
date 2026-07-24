@@ -1,0 +1,25 @@
+<Project>
+
+  <PropertyGroup>
+    <Version>0.1.0</Version>
+    <Authors>Niraj Pant</Authors>
+    <Company>Niraj Pant</Company>
+    <Product>skillmeter</Product>
+    <Description>Measure what your agent skills cost in context. Offline, cross-agent, CI-friendly.</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/nirajpant07/skillmeter</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/nirajpant07/skillmeter</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>agent-skills;claude;claude-code;observability;tokens;context;cli;skills</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
+    <DebugType>embedded</DebugType>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(IsPackable)' != 'false'">
+    <None Include="$(MSBuildThisFileDirectory)README.md" Pack="true" PackagePath="\" Visible="false" />
+  </ItemGroup>
+
+</Project>

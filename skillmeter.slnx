@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/SkillMeter/SkillMeter.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/SkillMeter.Tests/SkillMeter.Tests.csproj" />
+  </Folder>
+</Solution>

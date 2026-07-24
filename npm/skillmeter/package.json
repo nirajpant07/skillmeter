@@ -1,0 +1,42 @@
+{
+  "name": "skillmeter",
+  "version": "0.1.0",
+  "description": "Measure what your agent skills cost in context. Offline, cross-agent, CI-friendly.",
+  "keywords": [
+    "agent-skills",
+    "claude",
+    "claude-code",
+    "skills",
+    "observability",
+    "tokens",
+    "context",
+    "cli"
+  ],
+  "homepage": "https://github.com/nirajpant07/skillmeter#readme",
+  "bugs": "https://github.com/nirajpant07/skillmeter/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nirajpant07/skillmeter.git"
+  },
+  "license": "MIT",
+  "author": "Niraj Pant",
+  "type": "commonjs",
+  "bin": {
+    "skillmeter": "index.js"
+  },
+  "files": [
+    "index.js",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "optionalDependencies": {
+    "skillmeter-linux-x64": "0.1.0",
+    "skillmeter-linux-arm64": "0.1.0",
+    "skillmeter-darwin-x64": "0.1.0",
+    "skillmeter-darwin-arm64": "0.1.0",
+    "skillmeter-win32-x64": "0.1.0",
+    "skillmeter-win32-arm64": "0.1.0"
+  }
+}
