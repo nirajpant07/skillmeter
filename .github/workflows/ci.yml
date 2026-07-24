@@ -32,18 +32,19 @@ jobs:
       - name: Build
         run: dotnet build --configuration Release
 
-      # Symlink creation is unprivileged on Linux and macOS, so the three symlink
-      # tests must genuinely run there. SKILLMETER_REQUIRE_LINKS=1 turns a skip
-      # into a failure, which is what stops that coverage lapsing silently again.
+      # SKILLMETER_REQUIRE_LINKS=1 turns "cannot create a symlink" from a skip into
+      # a failure, so the three symlink tests can never silently lapse back into
+      # passing without asserting anything.
       #
-      # Windows is deliberately left unset on this first pass: whether a GitHub
-      # Windows runner can create symlinks without Developer Mode is precisely
-      # what this run is meant to establish. The junction tests cover the same
-      # reparse-point logic there regardless. Tighten once the log answers it.
+      # Applied on all three OSes including Windows: the first CI run confirmed a
+      # GitHub Windows runner creates symlinks fine (it is sufficiently elevated),
+      # so all six link tests — three symlink, three junction — really execute
+      # there. An ordinary unelevated Windows dev machine still skips the symlink
+      # three and relies on the junction three.
       - name: Test
         shell: bash
         env:
-          SKILLMETER_REQUIRE_LINKS: ${{ runner.os == 'Windows' && '0' || '1' }}
+          SKILLMETER_REQUIRE_LINKS: '1'
         run: |
           set -o pipefail
           dotnet test --configuration Release --no-build \
