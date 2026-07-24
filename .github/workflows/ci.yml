@@ -96,7 +96,11 @@ jobs:
       - name: Smoke — exit codes
         shell: bash
         run: |
-          set -uo pipefail
+          # GitHub's default bash shell is invoked with -e, which would abort this
+          # step at the first intentionally non-zero exit. Every check below expects
+          # a specific failure code, so errexit has to go off explicitly.
+          set +e
+          set -u -o pipefail
           run() { dotnet run --project src/SkillMeter/SkillMeter.csproj --configuration Release --no-build -- "$@"; }
 
           check () { # label expected actual
