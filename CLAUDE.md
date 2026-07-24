@@ -105,15 +105,17 @@ Every one of these was live, and each has a regression test in `RegressionTests.
   (`C:\`, bare `X:`), UNC (`\\host\C$\...`), extended-length (`\\?\C:\`), trailing
   separators, forward slashes and mixed case all produce byte-identical results
   (18 skills / 1,638 tokens on `anthropics/skills`). Residuals:
-  - **Real symlinks are still unexecuted.** They need elevation or Developer Mode.
-    The three symlink tests now *skip visibly* instead of returning early, and
-    `SKILLMETER_REQUIRE_LINKS=1` turns the skip into a failure for CI. Junction
-    equivalents (`JunctionMirroringSkillsIsCountedOnce`,
-    `ResourceWalkDoesNotFollowJunctionLoops`,
-    `JunctionWithAJunctionedPrefixStillDeduplicates`) run unprivileged and cover the
-    same reparse-point logic — including the linked-*prefix* restart, because
-    `mklink /J` stores its target verbatim. The one branch junctions cannot reach is
-    a **relative** link target; Windows junctions are always absolute.
+  - ~~**Real symlinks are still unexecuted.**~~ **Resolved in CI.** A GitHub
+    `windows-latest` runner is elevated enough to create symlinks without Developer
+    Mode, so all six link tests — three symlink, three junction — genuinely execute
+    there, and `SKILLMETER_REQUIRE_LINKS=1` is now enforced on all three OSes so the
+    coverage cannot lapse silently again. An ordinary *unelevated* Windows dev
+    machine still skips the symlink three and relies on the junction three
+    (`JunctionMirroringSkillsIsCountedOnce`, `ResourceWalkDoesNotFollowJunctionLoops`,
+    `JunctionWithAJunctionedPrefixStillDeduplicates`), which cover the same
+    reparse-point logic including the linked-*prefix* restart, because `mklink /J`
+    stores its target verbatim. The one branch junctions cannot reach is a
+    **relative** link target; Windows junctions are always absolute.
   - **NativeAOT has never been compiled for Windows.** `dotnet publish -r win-x64`
     fails without the MSVC linker (see Build). A `PublishTrimmed=true TrimMode=full`
     build *does* work and returns identical counts, so trimming does not drop the

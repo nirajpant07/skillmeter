@@ -7,7 +7,28 @@ Nothing here should be started before **T1**, because T1 may invalidate the othe
 
 ---
 
-## T1 — Verify Windows, or drop the claim
+## T1 — Verify Windows, or drop the claim ✅ DONE (2026-07-25)
+
+Executed on Windows 11 / SDK 10.0.302 and in CI on all three OSes.
+
+- 70 pass / 3 skip locally; the three symlink tests no longer self-skip silently —
+  they report a visible skip, and `SKILLMETER_REQUIRE_LINKS=1` makes skipping a
+  failure. **In CI all six link tests genuinely execute on Windows**, because a
+  GitHub `windows-latest` runner can create symlinks without Developer Mode.
+- Junction-based equivalents give unelevated Windows machines real coverage of the
+  same reparse-point logic.
+- Path forms all verified identical: drive roots (`C:\`, bare `X:`), UNC,
+  extended-length (`\\?\`), trailing separators, forward slashes, mixed case.
+- **No defect was found in `SkillScanner.RealPath`.** The one bug fixed was in test
+  teardown, which broke on reparse points and would have failed an elevated run too.
+- Line endings: `metadataTokens` is CRLF-stable; bodies drift +0.4% on a CRLF
+  checkout. Documented in CLAUDE.md, locked by a regression test.
+
+Residual: NativeAOT for Windows — see T4.
+
+<details>
+<summary>Original spec</summary>
+
 **Blocks the launch. Do this first.**
 
 The README's comparison table claims Windows support against a competitor that lacks
@@ -26,6 +47,8 @@ it. It has never been executed on Windows.
 **Done when:** all 69 tests pass on Windows *with symlink tests actually executing*,
 and the binary produces correct output. If something can't be made to work, change the
 README rather than shipping a false claim.
+
+</details>
 
 ---
 
@@ -67,8 +90,25 @@ output modes.
 
 ## T4 — Make the CI matrix actually run
 
-`.github/workflows/*.yml` are written but have never executed. Note these two files
-could not be written by remote tooling (protected path) and may need saving manually.
+**Correction:** the workflows did not exist at all — `.github/` was absent, so they
+were never saved. Both were written from scratch on 2026-07-25.
+
+- ✅ `ci.yml` runs green on ubuntu, windows and macos. Smoke steps use a real
+  populated corpus built inline (the spec below correctly predicted that pointing at
+  `tests/` would only exercise the empty-corpus branch).
+- ✅ `SKILLMETER_REQUIRE_LINKS=1` enforced on all three OSes.
+- ⏳ `release.yml`: six-RID NativeAOT matrix, GitHub Releases only. Registry
+  publishing deliberately excluded until the matrix is proven — NuGet cannot delete
+  a published package and npm's unpublish window is narrow, so a botched version
+  number is burned permanently on both.
+- ☐ npm + NuGet publishing. Needs `NPM_TOKEN`/`NUGET_API_KEY` (or OIDC trusted
+  publishing) and the six per-platform npm packages, which do not exist yet. The
+  README already advertises `npx skillmeter`, `npm install -g` and
+  `dotnet tool install -g`, **none of which work** — that is now a public promise
+  the repo does not keep.
+
+<details>
+<summary>Original spec</summary>
 
 - Push and let `ci.yml` run on all three OSes; fix what breaks.
 - The release matrix is the risky one: cross-OS NativeAOT is unsupported, so each RID
@@ -80,6 +120,8 @@ could not be written by remote tooling (protected path) and may need saving manu
 
 **Done when:** a tagged pre-release produces six working binaries and publishes to both
 registries without manual intervention.
+
+</details>
 
 ---
 
