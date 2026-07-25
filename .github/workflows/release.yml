@@ -93,8 +93,19 @@ jobs:
           [ "${{ runner.os }}" = "Windows" ] && exe="$exe.exe"
 
           # An arm64 binary cross-built on an arm64 runner is native, so it must run.
-          "$exe" --version
           "$exe" --help > /dev/null
+
+          # The binary must report the version it was stamped with. This caught a
+          # real defect: Program.Version was a hardcoded const, so -p:Version moved
+          # the assembly metadata while the binary kept reporting the checked-in
+          # number, including in the toolVersion field of the JSON contract.
+          got="$("$exe" --version)"
+          want="${{ steps.v.outputs.version }}"
+          if [ "$got" != "$want" ]; then
+            echo "FAIL: binary reports '$got', expected '$want'"
+            exit 1
+          fi
+          echo "ok: binary reports $got"
 
           mkdir -p _smoke/alpha
           printf -- '---\nname: alpha\ndescription: d\n---\nbody\n' > _smoke/alpha/SKILL.md

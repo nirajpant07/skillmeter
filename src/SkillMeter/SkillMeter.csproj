@@ -32,6 +32,32 @@
     <ToolPackageRuntimeIdentifiers>win-x64;win-arm64;linux-x64;linux-arm64;osx-x64;osx-arm64;any</ToolPackageRuntimeIdentifiers>
   </PropertyGroup>
 
+  <!-- Single-sources the version into the binary.
+
+       Program.Version used to be a hand-maintained const, so `dotnet publish
+       -p:Version=x` changed the assembly metadata while the binary carried on
+       reporting the old number: both from the version flag and from the
+       `toolVersion` field, which is part of the documented JSON contract. A
+       release would have shipped binaries that misreport themselves.
+
+       Generated rather than read back through reflection, because looking up
+       AssemblyInformationalVersionAttribute is exactly the reflection NativeAOT
+       disallows, and a compile-time const costs nothing at runtime. -->
+  <Target Name="GenerateBuildInfo" BeforeTargets="BeforeCompile;CoreCompile">
+    <PropertyGroup>
+      <BuildInfoFile>$(IntermediateOutputPath)BuildInfo.g.cs</BuildInfoFile>
+    </PropertyGroup>
+    <WriteLinesToFile
+      File="$(BuildInfoFile)"
+      Lines="// &lt;auto-generated /&gt; Generated from MSBuild %24(Version)%3B see GenerateBuildInfo.;namespace SkillMeter%3B;internal static class BuildInfo;{;    public const string Version = &quot;$(Version)&quot;%3B;}"
+      Overwrite="true"
+      WriteOnlyWhenDifferent="true" />
+    <ItemGroup>
+      <Compile Include="$(BuildInfoFile)" />
+      <FileWrites Include="$(BuildInfoFile)" />
+    </ItemGroup>
+  </Target>
+
   <ItemGroup>
     <!-- Both first-party Microsoft. The Data package embeds the o200k_base
          vocabulary, so token counting is fully offline: no API key, no network. -->

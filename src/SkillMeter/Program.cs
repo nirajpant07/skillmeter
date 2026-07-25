@@ -8,7 +8,14 @@ namespace SkillMeter;
 
 public static class Program
 {
-    public const string Version = "0.1.0";
+    /// <summary>
+    /// Comes from MSBuild <c>$(Version)</c> via the generated <c>BuildInfo</c>, so a
+    /// release stamped with <c>-p:Version=x</c> actually reports x. This was a
+    /// hardcoded literal, which meant every published binary reported the number
+    /// that happened to be checked in — including in the <c>toolVersion</c> field
+    /// of the --json contract.
+    /// </summary>
+    public const string Version = BuildInfo.Version;
 
     // Exit codes are part of the contract for CI use.
     private const int Ok = 0;
