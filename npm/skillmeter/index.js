@@ -16,13 +16,21 @@ const { spawnSync } = require('node:child_process');
 const path = require('node:path');
 const fs = require('node:fs');
 
+// Scoped deliberately. npm's abuse filter rejects unscoped `skillmeter-win32-*`
+// with "Package name triggered spam detection", while the linux and darwin names
+// published fine — so it is the name, not the rate. A scope lives in its own
+// namespace and sidesteps that filter entirely, which is why esbuild ships
+// @esbuild/linux-x64 rather than esbuild-linux-x64.
+//
+// Only these inner packages are scoped. The wrapper stays `skillmeter`, so
+// `npx skillmeter` and `npm install -g skillmeter` are unaffected.
 const PLATFORMS = {
-  'linux-x64': 'skillmeter-linux-x64',
-  'linux-arm64': 'skillmeter-linux-arm64',
-  'darwin-x64': 'skillmeter-darwin-x64',
-  'darwin-arm64': 'skillmeter-darwin-arm64',
-  'win32-x64': 'skillmeter-win32-x64',
-  'win32-arm64': 'skillmeter-win32-arm64',
+  'linux-x64': '@niraj.pant/skillmeter-linux-x64',
+  'linux-arm64': '@niraj.pant/skillmeter-linux-arm64',
+  'darwin-x64': '@niraj.pant/skillmeter-darwin-x64',
+  'darwin-arm64': '@niraj.pant/skillmeter-darwin-arm64',
+  'win32-x64': '@niraj.pant/skillmeter-win32-x64',
+  'win32-arm64': '@niraj.pant/skillmeter-win32-arm64',
 };
 
 function fail(message) {

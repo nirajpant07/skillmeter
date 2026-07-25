@@ -268,8 +268,11 @@ jobs:
         run: |
           set -euo pipefail
           V="${{ steps.v.outputs.version }}"
+          NPM_SCOPE="@niraj.pant"
           mkdir -p npm-build
 
+          # Platform packages are scoped; the wrapper is not. Directory names stay
+          # flat (no scope prefix) because a scope would introduce a slash.
           emit () { # rid os cpu exe archive
             rid=$1; os=$2; cpu=$3; exe=$4; ar=$5
             dir="npm-build/skillmeter-$os-$cpu"
@@ -293,7 +296,7 @@ jobs:
                 os: [os], cpu: [cpu], files: ["bin/"],
                 preferUnplugged: true
               }, null, 2) + "\n");
-            ' "$dir" "skillmeter-$os-$cpu" "$V" "$os" "$cpu"
+            ' "$dir" "$NPM_SCOPE/skillmeter-$os-$cpu" "$V" "$os" "$cpu"
 
             cp README.md LICENSE "$dir/" 2>/dev/null || true
             echo "built skillmeter-$os-$cpu"
@@ -348,9 +351,12 @@ jobs:
           # state — the publish step skips whatever already landed. Only a complete
           # set is a genuine "pick a new version".
           V="${{ steps.v.outputs.version }}"
-          ALL="skillmeter skillmeter-linux-x64 skillmeter-linux-arm64
-               skillmeter-darwin-x64 skillmeter-darwin-arm64
-               skillmeter-win32-x64 skillmeter-win32-arm64"
+          # Wrapper unscoped, platform packages scoped — see the comment in
+          # npm/skillmeter/index.js for why.
+          ALL="skillmeter
+               @niraj.pant/skillmeter-linux-x64 @niraj.pant/skillmeter-linux-arm64
+               @niraj.pant/skillmeter-darwin-x64 @niraj.pant/skillmeter-darwin-arm64
+               @niraj.pant/skillmeter-win32-x64 @niraj.pant/skillmeter-win32-arm64"
 
           present=0; total=0
           for p in $ALL; do
@@ -444,7 +450,9 @@ jobs:
 
           first=1
           for d in npm-build/skillmeter-*; do
-            name=$(basename "$d")
+            # From the manifest, not the directory: the directory is flat while the
+            # published name carries the scope.
+            name=$(node -p "require('./$d/package.json').name")
             # Space out brand-new package creations; bursts are what trips the
             # abuse filter in the first place.
             if [ "$first" = 0 ] && [ "$REAL" = "true" ]; then sleep 20; fi

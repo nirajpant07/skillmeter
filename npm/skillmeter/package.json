@@ -32,11 +32,11 @@
     "node": ">=18"
   },
   "optionalDependencies": {
-    "skillmeter-linux-x64": "0.1.0",
-    "skillmeter-linux-arm64": "0.1.0",
-    "skillmeter-darwin-x64": "0.1.0",
-    "skillmeter-darwin-arm64": "0.1.0",
-    "skillmeter-win32-x64": "0.1.0",
-    "skillmeter-win32-arm64": "0.1.0"
+    "@niraj.pant/skillmeter-linux-x64": "0.1.0",
+    "@niraj.pant/skillmeter-linux-arm64": "0.1.0",
+    "@niraj.pant/skillmeter-darwin-x64": "0.1.0",
+    "@niraj.pant/skillmeter-darwin-arm64": "0.1.0",
+    "@niraj.pant/skillmeter-win32-x64": "0.1.0",
+    "@niraj.pant/skillmeter-win32-arm64": "0.1.0"
   }
 }
