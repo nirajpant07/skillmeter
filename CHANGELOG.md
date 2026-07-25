@@ -4,9 +4,10 @@ All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.0] — unreleased
+## [0.1.0] — 2026-07-25
 
-First release.
+First release. Verified on Linux, macOS and Windows; NativeAOT binaries for six
+RIDs published to npm, NuGet and GitHub Releases.
 
 ### Added
 - `budget` — listing cost against the skill-listing budget, and how many skills lose
