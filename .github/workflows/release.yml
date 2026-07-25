@@ -369,11 +369,13 @@ jobs:
             fi
           done
 
+          # A fully-published version is success, not failure. npm and NuGet are
+          # separate jobs, so a run where npm completed and NuGet did not has to be
+          # re-runnable — erroring here would permanently block the job that still
+          # needs to happen. The publish step skips each package individually.
           if [ "$present" -eq "$total" ]; then
-            echo "::error::every package is already published at $V. Nothing to do; pick a new version."
-            exit 1
-          fi
-          if [ "$present" -gt 0 ]; then
+            echo "::notice::all $total packages are already on npm at $V; nothing to publish."
+          elif [ "$present" -gt 0 ]; then
             echo "::warning::resuming a partial publish — $present of $total already on npm at $V."
           fi
 
@@ -549,11 +551,11 @@ jobs:
             fi
           done
 
+          # Same reasoning as npm: idempotent, so a re-run to recover the other
+          # registry is never blocked. --skip-duplicate makes the push a no-op.
           if [ "$present" -eq "$total" ]; then
-            echo "::error::every package is already on nuget.org at $V. Nothing to do; pick a new version."
-            exit 1
-          fi
-          if [ "$present" -gt 0 ]; then
+            echo "::notice::all $total packages are already on nuget.org at $V; push will be a no-op."
+          elif [ "$present" -gt 0 ]; then
             echo "::warning::resuming a partial push — $present of $total already on nuget.org at $V."
           fi
 
