@@ -115,6 +115,33 @@ output modes.
 
 ---
 
+## T4 — Make the CI matrix actually run ✅ DONE (2026-07-25)
+
+Both workflows written from scratch (they did not exist) and both are green.
+`ci.yml` builds and tests on all three OSes with `SKILLMETER_REQUIRE_LINKS=1`.
+`release.yml` builds six NativeAOT RIDs, each smoke-running its own binary, and
+publishes to GitHub Releases, npm and NuGet. **0.1.0 shipped through it.**
+
+Things that broke and are now fixed, so they are not rediscovered:
+- `macos-13` was retired; the job queued 9+ hours instead of failing, because an
+  unmatched `runs-on` label parks a job until GitHub's 24h limit. Now `macos-15-intel`.
+- GitHub invokes bash with `-e`, which aborted the exit-code smoke at the first
+  intentional non-zero exit.
+- `python3` is not reliable on Windows runners; JSON assertions use `node`.
+- Registry mechanics — pointer/RID packages, scoped npm names, credential scopes,
+  NuGet's three indexes — are all written up under **Releasing** in `CLAUDE.md`.
+
+Remaining, all requiring account access rather than code:
+- NuGet `Unlist`-scoped key, to unlist `0.0.1-alpha.8` (a Push-only key 403s).
+- npm `0.0.1-alpha.8` versions still exist on all 7 packages; removal needs an OTP.
+  Nothing points at them — the `next` dist-tag is gone.
+- Narrow `NPM_TOKEN` now the packages exist; reserve the `skillmeter.*` NuGet prefix.
+- Delete `.github/workflows/prune-prerelease.yml` once the unlist is done.
+- Bump `Directory.Build.props` to `0.2.0-dev` so `main` is not on a released version.
+
+<details>
+<summary>Original spec</summary>
+
 ## T4 — Make the CI matrix actually run
 
 **Correction:** the workflows did not exist at all — `.github/` was absent, so they
@@ -149,6 +176,22 @@ were never saved. Both were written from scratch on 2026-07-25.
 registries without manual intervention.
 
 </details>
+
+---
+
+## Shipped
+
+**0.1.0 — 2026-07-25.** T1–T5 complete. Live on all three channels, each verified by
+installing and running the published artifact rather than trusting a green workflow:
+
+```
+npm install -g skillmeter        →  0.1.0
+dotnet tool install -g skillmeter →  0.1.0, 4.9 MB native binary
+github.com/nirajpant07/skillmeter/releases/tag/v0.1.0
+```
+
+142 tests; CI green on ubuntu, windows and macos. On Windows CI **zero tests skip** —
+every symlink and junction test runs there.
 
 ---
 

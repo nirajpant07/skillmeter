@@ -154,8 +154,10 @@ Every one of these was live, and each has a regression test in `RegressionTests.
   odd-cased names measures marginally higher on Windows than on Linux. (The Win32
   3-character-extension wildcard quirk does *not* apply: `*.md` is two characters, and
   `.mdx`/`.markdown` were confirmed unmatched.)
-- **CI workflows are untested.** The 6-runner NativeAOT release matrix has never run.
-  Cross-OS AOT compilation is unsupported, which is why each RID gets its own runner.
+- ~~**CI workflows are untested.**~~ **Closed.** `ci.yml` is green on ubuntu, windows
+  and macos; the 6-runner NativeAOT release matrix has run repeatedly and shipped
+  0.1.0 to both registries. Cross-OS AOT is still unsupported — that constraint is
+  why each RID keeps its own runner.
 - ~~**`JsonReporter`, `TextReporter` and `Program` have no tests.**~~ **Closed by T2.**
   142 tests, up from 73. The gating decision was lifted into `Gate.Evaluate`, the JSON
   envelope is asserted through the serialized text by key name, and `TextReporter` is
@@ -167,6 +169,52 @@ Every one of these was live, and each has a regression test in `RegressionTests.
 - **Silent under-counting is fixed but the reasons are best-effort.** T3 records every
   swallowed IO error, but the reason text comes from the exception message, which
   differs by platform. Assert on `skippedCount`, not on wording.
+
+## Releasing — hard-won mechanics, don't rediscover these
+
+A release is one command: `git tag vX.Y.Z && git push origin vX.Y.Z`. `release.yml`
+does the rest. Everything below was learned the expensive way while shipping 0.1.0.
+
+**Version comes from MSBuild.** `Program.Version` is generated from `$(Version)` in
+`Directory.Build.props` via `BuildInfo.g.cs`. Bump it there; the tag and it must
+agree. `release.yml` asserts the built binary reports the version it was stamped with.
+
+**NuGet ships 7 packages, not 1.** `dotnet pack` emits a 5 KB *pointer* package whose
+`DotnetToolSettings.xml` maps each RID to a `skillmeter.<rid>` package; those come
+from `dotnet pack -r <rid>`, which AOT-compiles and must run on a matching runner.
+All seven push together, **RID packages first and the pointer last** — a pointer
+published without its targets is a broken install, and NuGet has no delete.
+
+**npm ships 7 too**, and the platform packages are **scoped**. Unscoped
+`skillmeter-win32-*` is rejected with *"Package name triggered spam detection"* while
+the linux and darwin equivalents publish fine; three retries at widening intervals
+failed identically, so it is the name, not a rate limit. They live under
+`@niraj.pant/*`; only the wrapper is unscoped, so `npx skillmeter` is unaffected.
+Platform packages publish **before** the wrapper, which pins them by exact version.
+
+**Both registries are write-once.** A version is never reusable. Publishing is
+therefore idempotent and resumable: each package is skipped if that exact version
+already exists, so a partial publish can be completed by re-running. The preflights
+report what exists and continue — they must never hard-fail on an already-published
+version, or a run that got halfway can never be finished.
+
+**Credential scopes bite in non-obvious ways.**
+- npm automation tokens bypass 2FA for *publish* but **not** for *delete*. Unpublish
+  and dist-tag deletion need an interactive OTP and cannot be done from CI.
+- NuGet API keys have **separate Push and Unlist scopes**. A Push-only key publishes
+  perfectly and then 403s on every unlist.
+
+**Do not declare a NuGet publish done from the flat container.** nuget.org has three
+indexes that update independently. `api.nuget.org/v3-flatcontainer` updates first;
+`dotnet tool install` resolves against the **registration** index
+(`registration5-gz-semver2`), which lags. The tool reports "not found" while the
+flat container already shows the version. Verify by actually running
+`dotnet tool install`, not by querying an index.
+
+**npm prereleases need `--tag next` explicitly** — npm defaults every publish to
+`latest` regardless of the version string. One exception nothing can prevent: the
+*first ever* publish of a package becomes `latest` no matter what, so a rehearsal on
+a brand-new name will briefly own `latest` until a stable version supersedes it.
 
 ## Conventions
 
