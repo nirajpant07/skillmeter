@@ -59,6 +59,12 @@
   </Target>
 
   <ItemGroup>
+    <!-- RealPath is the most intricate function in the codebase and was previously
+         reachable from tests only indirectly, through a full scan. -->
+    <InternalsVisibleTo Include="SkillMeter.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Both first-party Microsoft. The Data package embeds the o200k_base
          vocabulary, so token counting is fully offline: no API key, no network. -->
     <PackageReference Include="Microsoft.ML.Tokenizers" Version="2.0.0" />

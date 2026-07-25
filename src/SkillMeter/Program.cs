@@ -17,11 +17,11 @@ public static class Program
     /// </summary>
     public const string Version = BuildInfo.Version;
 
-    // Exit codes are part of the contract for CI use.
-    private const int Ok = 0;
-    private const int BudgetExceeded = 1;
-    private const int UsageError = 2;
-    private const int RuntimeError = 3;
+    // Exit codes live in ExitCode, and the gating decision in Gate.Evaluate, so the
+    // contract can be tested without spawning a process.
+    private const int Ok = ExitCode.Ok;
+    private const int UsageError = ExitCode.UsageError;
+    private const int RuntimeError = ExitCode.RuntimeError;
 
     public static int Main(string[] args)
     {
@@ -102,23 +102,9 @@ public static class Program
                 : TextReporter.RenderBudget(report));
 
         // CI gating
-        if (o.FailOn is { } threshold && report.MetadataTokens > threshold)
-        {
-            Console.Error.WriteLine(
-                $"skillmeter: listing metadata is {report.MetadataTokens:N0} tokens, " +
-                $"over the --fail-on threshold of {threshold:N0}.");
-            return BudgetExceeded;
-        }
-
-        if (o.FailOverBudget && report.IsOverBudget)
-        {
-            Console.Error.WriteLine(
-                $"skillmeter: listing metadata is {report.MetadataTokens:N0} tokens, " +
-                $"over the {report.BudgetTokens:N0}-token budget.");
-            return BudgetExceeded;
-        }
-
-        return Ok;
+        var gate = Gate.Evaluate(report, o);
+        if (gate.Message is not null) Console.Error.WriteLine($"skillmeter: {gate.Message}");
+        return gate.Code;
     }
 
     private static int ShowRoots(string projectDir, bool json)
