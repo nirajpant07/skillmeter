@@ -161,8 +161,11 @@ jobs:
     permissions:
       contents: write
     steps:
+      # Scoped to the binary archives. The nupkg-* artifacts are consumed by the
+      # nuget job and must not land in the GitHub Release, nor be counted here.
       - uses: actions/download-artifact@v4
         with:
+          pattern: skillmeter-*
           path: staging
           merge-multiple: true
 
