@@ -193,11 +193,26 @@ jobs:
           else
             tag="v${{ inputs.version }}"
           fi
-          gh release create "$tag" staging/* \
-            --repo "$GITHUB_REPOSITORY" \
-            --title "$tag" \
-            --generate-notes \
-            --prerelease
+
+          # Only a semver prerelease is flagged as one; v0.1.0 must land as a full
+          # release or it stays hidden behind "show pre-releases".
+          case "$tag" in
+            *-*) PRE=--prerelease ;;
+            *)   PRE= ;;
+          esac
+
+          # Re-running a version must not hard-fail. Registry publishing can need a
+          # second attempt, and the GitHub Release is the recoverable part.
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "release $tag already exists — replacing its assets"
+            gh release upload "$tag" staging/* --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create "$tag" staging/* \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "$tag" \
+              --generate-notes \
+              $PRE
+          fi
 
       - name: Dry run summary
         if: github.event_name == 'workflow_dispatch' && inputs.dry_run
@@ -372,30 +387,63 @@ jobs:
             echo "DRY RUN — nothing will be published"
           fi
 
-          # `npm whoami` in the preflight proves the token authenticates; it does NOT
-          # prove it may publish. A token without 2FA bypass passes whoami and then
-          # 403s here. Name the remedy rather than leaving the raw npm error.
           explain_failure () {
-            echo "::error::npm publish failed for $1."
+            echo "::error::npm publish failed for $1 after retries."
             cat <<'EOF'
-          If the error mentions two-factor authentication:
-            the token authenticates but is not allowed to publish. Replace it with
-            either a Classic "Automation" token (npmjs.com -> Access Tokens ->
-            Generate New Token -> Classic -> Automation), which bypasses 2FA by
-            design, or a Granular Access Token created with 2FA bypass enabled.
-            Update the NPM_TOKEN repository secret and re-run.
+          Read the npm error above; the two that actually occur are:
+
+          "Two-factor authentication ... required to publish"
+            The token authenticates but may not publish. Use a Classic "Automation"
+            token (npmjs.com -> Access Tokens -> Generate New Token -> Classic ->
+            Automation), or a Granular token with 2FA bypass enabled.
+
+          "Package name triggered spam detection"
+            npm's abuse filter, usually from publishing several brand-new
+            similarly-named packages in quick succession. This step already spaces
+            and retries them. If it persists for the same name, the durable fix is
+            scoped names (@owner/skillmeter-<os>-<cpu>), which is why esbuild and
+            swc publish their platform binaries scoped.
           EOF
             exit 1
           }
 
+          # Publishing is resumable. A version cannot be republished on npm, so a
+          # run that got partway through must skip what already landed rather than
+          # failing on it — otherwise a partial publish can never be completed.
+          publish_one () {
+            dir=$1; name=$2
+            if [ "$REAL" = "true" ] && npm view "$name@$V" version >/dev/null 2>&1; then
+              echo "already published: $name@$V — skipping"
+              return 0
+            fi
+            for attempt in 1 2 3; do
+              if (cd "$dir" && npm publish $FLAGS); then return 0; fi
+              if [ "$attempt" -lt 3 ]; then
+                back=$((attempt * 45))
+                echo "attempt $attempt failed; waiting ${back}s before retry"
+                sleep "$back"
+              fi
+            done
+            explain_failure "$name"
+          }
+
+          first=1
           for d in npm-build/skillmeter-*; do
-            echo "::group::publish $d"
-            (cd "$d" && npm publish $FLAGS) || explain_failure "$d"
+            name=$(basename "$d")
+            # Space out brand-new package creations; bursts are what trips the
+            # abuse filter in the first place.
+            if [ "$first" = 0 ] && [ "$REAL" = "true" ]; then sleep 20; fi
+            first=0
+            echo "::group::publish $name"
+            publish_one "$d" "$name"
             echo "::endgroup::"
           done
 
+          # Wrapper last: it pins the platform packages by exact version, so it must
+          # never exist before they do.
           echo "::group::publish wrapper"
-          (cd npm-build/skillmeter && npm publish $FLAGS) || explain_failure "wrapper"
+          [ "$REAL" = "true" ] && sleep 20
+          publish_one npm-build/skillmeter skillmeter
           echo "::endgroup::"
 
   publish-nuget:
