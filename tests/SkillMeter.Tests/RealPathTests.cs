@@ -10,10 +10,20 @@ namespace SkillMeter.Tests;
 /// </summary>
 public sealed class RealPathTests : IDisposable
 {
-    private readonly string _root =
-        Path.Combine(Path.GetTempPath(), "skillmeter-realpath-" + Guid.NewGuid().ToString("N"));
+    private readonly string _root;
 
-    public RealPathTests() => Directory.CreateDirectory(_root);
+    public RealPathTests()
+    {
+        var raw = Path.Combine(Path.GetTempPath(), "skillmeter-realpath-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(raw);
+
+        // Resolved before use as an expected value. On macOS GetTempPath returns
+        // /var/folders/..., and /var is itself a symlink to /private/var — so
+        // comparing against the raw string would fail against a *correct* answer.
+        // This is the /tmp -> /private/tmp shape RealPath exists to handle, and the
+        // test fixture has to respect it too.
+        _root = SkillScanner.RealPath(raw);
+    }
 
     public void Dispose() => LinkSupport.DeleteTree(_root);
 
