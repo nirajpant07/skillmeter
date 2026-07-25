@@ -36,7 +36,7 @@ public sealed class GateTests
     [Theory]
     [InlineData(1_000, 999, ExitCode.Ok)]      // under
     [InlineData(1_000, 1_000, ExitCode.Ok)]    // equal: "exceeds" is strictly greater
-    [InlineData(1_000, 1_001, ExitCode.BudgetExceeded)]
+    [InlineData(1_000, 1_001, ExitCode.GateFailed)]
     public void FailOnTripsOnlyAboveTheThreshold(int threshold, int metadata, int expected)
     {
         var r = Gate.Evaluate(Fixtures.ReportWithMetadata(2_000, metadata), Opts(failOn: threshold));
@@ -48,7 +48,7 @@ public sealed class GateTests
     public void FailOnZeroIsALegitimateThreshold()
     {
         // Zero is explicitly allowed by the parser, so any skill at all trips it.
-        Assert.Equal(ExitCode.BudgetExceeded,
+        Assert.Equal(ExitCode.GateFailed,
             Gate.Evaluate(Fixtures.ReportWithMetadata(2_000, 1), Opts(failOn: 0)).Code);
 
         Assert.Equal(ExitCode.Ok,
@@ -58,7 +58,7 @@ public sealed class GateTests
     [Theory]
     [InlineData(1_999, ExitCode.Ok)]
     [InlineData(2_000, ExitCode.Ok)]           // exactly at budget is not over it
-    [InlineData(2_001, ExitCode.BudgetExceeded)]
+    [InlineData(2_001, ExitCode.GateFailed)]
     public void FailOverBudgetTripsOnlyAboveTheBudget(int metadata, int expected)
     {
         var r = Gate.Evaluate(Fixtures.ReportWithMetadata(2_000, metadata), Opts(failOverBudget: true));
@@ -73,7 +73,7 @@ public sealed class GateTests
             Fixtures.ReportWithMetadata(2_000, 5_000),
             Opts(failOn: 100, failOverBudget: true));
 
-        Assert.Equal(ExitCode.BudgetExceeded, r.Code);
+        Assert.Equal(ExitCode.GateFailed, r.Code);
         Assert.Contains("--fail-on", r.Message);
     }
 
@@ -94,7 +94,7 @@ public sealed class GateTests
     {
         // HelpText: "0 ok  1 over budget  2 usage error  3 runtime error"
         Assert.Equal(0, ExitCode.Ok);
-        Assert.Equal(1, ExitCode.BudgetExceeded);
+        Assert.Equal(1, ExitCode.GateFailed);
         Assert.Equal(2, ExitCode.UsageError);
         Assert.Equal(3, ExitCode.RuntimeError);
     }

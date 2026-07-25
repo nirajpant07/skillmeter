@@ -22,6 +22,34 @@ public sealed class SkillScanner(ITokenCounter tokens, int maxDescChars = Consta
         "external-sources",
     ];
 
+    private readonly List<SkippedPath> _skipped = [];
+
+    /// <summary>
+    /// Paths this scan could not read. Accumulates across every root scanned by this
+    /// instance, so a caller measures exactly what was missed.
+    /// </summary>
+    public IReadOnlyList<SkippedPath> Skipped => _skipped;
+
+    private void Skip(string path, string reason) => _skipped.Add(new SkippedPath(path, reason));
+
+    private void Skip(string path, Exception ex) => Skip(path, Describe(ex, path));
+
+    /// <summary>
+    /// Short reason text for the two exception types every filesystem call here can
+    /// throw. .NET embeds the full path in IO messages, but the path is already
+    /// reported in its own field, so repeating it doubles the length of every line
+    /// and pushes the text report out of its layout.
+    /// </summary>
+    private static string Describe(Exception ex, string path)
+    {
+        if (ex is UnauthorizedAccessException) return "permission denied";
+
+        var message = ex.Message.Replace($"'{path}'", "").Replace(path, "");
+        var collapsed = string.Join(' ', message.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+
+        return collapsed.Length == 0 ? "unreadable" : collapsed;
+    }
+
     /// <summary>
     /// Skill roots, in the order agents read them. Relative to <paramref name="projectDir"/>
     /// and the user's home directory.
@@ -77,14 +105,16 @@ public sealed class SkillScanner(ITokenCounter tokens, int maxDescChars = Consta
             {
                 skill = Measure(file, root);
             }
-            catch (IOException) { /* unreadable file: skip rather than abort the scan */ }
-            catch (UnauthorizedAccessException) { }
+            // Still skipped rather than aborting the whole scan, but no longer in
+            // silence: the caller can see what was missed and --strict can fail on it.
+            catch (IOException ex) { Skip(file, ex); }
+            catch (UnauthorizedAccessException ex) { Skip(file, ex); }
 
             if (skill is not null) yield return skill;
         }
     }
 
-    private static IEnumerable<string> EnumerateSkillFiles(string root)
+    private IEnumerable<string> EnumerateSkillFiles(string root)
     {
         var stack = new Stack<string>();
         stack.Push(root);
@@ -103,9 +133,10 @@ public sealed class SkillScanner(ITokenCounter tokens, int maxDescChars = Consta
             if (!visited.Add(RealPath(dir))) continue;
 
             string[] entries;
+            // A permission-denied subtree silently removed every skill beneath it.
             try { entries = Directory.GetDirectories(dir); }
-            catch (UnauthorizedAccessException) { continue; }
-            catch (IOException) { continue; }
+            catch (UnauthorizedAccessException ex) { Skip(dir, ex); continue; }
+            catch (IOException ex) { Skip(dir, ex); continue; }
 
             foreach (var sub in entries)
             {
@@ -124,7 +155,12 @@ public sealed class SkillScanner(ITokenCounter tokens, int maxDescChars = Consta
             }
 
             var candidate = Path.Combine(dir, "SKILL.md");
-            if (File.Exists(candidate) && IsRegularFile(candidate)) yield return candidate;
+            if (!File.Exists(candidate)) continue;
+
+            // A FIFO or device named SKILL.md is refused deliberately, but that is a
+            // measurement gap the user should hear about rather than a non-event.
+            if (IsRegularFile(candidate)) yield return candidate;
+            else Skip(candidate, "not a regular file (device or FIFO)");
         }
     }
 
@@ -310,20 +346,32 @@ public sealed class SkillScanner(ITokenCounter tokens, int maxDescChars = Consta
 
                     stack.Push(sub);
                 }
+            }
+            catch (IOException ex) { Skip(dir, ex); }
+            catch (UnauthorizedAccessException ex) { Skip(dir, ex); }
 
-                foreach (var file in Directory.GetFiles(dir, "*.md"))
+            string[] files;
+            try { files = Directory.GetFiles(dir, "*.md"); }
+            catch (IOException ex) { Skip(dir, ex); continue; }
+            catch (UnauthorizedAccessException ex) { Skip(dir, ex); continue; }
+
+            foreach (var file in files)
+            {
+                if (string.Equals(Path.GetFileName(file), "SKILL.md", StringComparison.OrdinalIgnoreCase))
+                    continue;
+                if (!IsRegularFile(file)) continue;
+                if (!visited.Add(RealPath(file))) continue;
+
+                // Caught per file rather than per directory: one unreadable resource
+                // used to abandon every remaining file in the same directory too.
+                try
                 {
-                    if (string.Equals(Path.GetFileName(file), "SKILL.md", StringComparison.OrdinalIgnoreCase))
-                        continue;
-                    if (!IsRegularFile(file)) continue;
-                    if (!visited.Add(RealPath(file))) continue;
-
                     total += tokens.Count(File.ReadAllText(file));
                     count++;
                 }
+                catch (IOException ex) { Skip(file, ex); }
+                catch (UnauthorizedAccessException ex) { Skip(file, ex); }
             }
-            catch (IOException) { }
-            catch (UnauthorizedAccessException) { }
         }
 
         return (total, count);

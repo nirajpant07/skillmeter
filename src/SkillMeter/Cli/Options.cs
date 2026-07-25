@@ -20,6 +20,9 @@ public sealed record Options
     /// <summary>Exit non-zero whenever the listing is over the configured budget.</summary>
     public bool FailOverBudget { get; init; }
 
+    /// <summary>Exit non-zero when any path could not be read, so an incomplete scan cannot pass a gate.</summary>
+    public bool Strict { get; init; }
+
     public bool UseApproxTokenizer { get; init; }
 }
 
@@ -57,6 +60,7 @@ public static class ArgParser
             {
                 case "--json": o = o with { Json = true }; break;
                 case "--fail-over-budget": o = o with { FailOverBudget = true }; break;
+                case "--strict": o = o with { Strict = true }; break;
                 case "--help" or "-h": return o with { Command = Command.Help };
                 case "--version" or "-v": return o with { Command = Command.Version };
 

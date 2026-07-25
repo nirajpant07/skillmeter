@@ -10,13 +10,31 @@ namespace SkillMeter.Output;
 
 public sealed record JsonEnvelope
 {
-    [JsonPropertyName("schemaVersion")] public int SchemaVersion { get; init; } = 1;
+    /// <summary>
+    /// 2 as of the skipped-path reporting: <c>skipped[]</c> and
+    /// <c>totals.skippedCount</c> were added, so a consumer that assumed every key
+    /// it knew about was the whole envelope sees a new one.
+    /// </summary>
+    [JsonPropertyName("schemaVersion")] public int SchemaVersion { get; init; } = 2;
+
     [JsonPropertyName("tool")] public string Tool { get; init; } = "skillmeter";
     [JsonPropertyName("toolVersion")] public required string ToolVersion { get; init; }
     [JsonPropertyName("tokenizer")] public required string Tokenizer { get; init; }
     [JsonPropertyName("budget")] public required JsonBudget Budget { get; init; }
     [JsonPropertyName("totals")] public required JsonTotals Totals { get; init; }
     [JsonPropertyName("skills")] public required IReadOnlyList<JsonSkill> Skills { get; init; }
+
+    /// <summary>
+    /// Paths the scan could not read. Non-empty means every figure above is a lower
+    /// bound. Always present, so a consumer can check it unconditionally.
+    /// </summary>
+    [JsonPropertyName("skipped")] public required IReadOnlyList<JsonSkipped> Skipped { get; init; }
+}
+
+public sealed record JsonSkipped
+{
+    [JsonPropertyName("path")] public required string Path { get; init; }
+    [JsonPropertyName("reason")] public required string Reason { get; init; }
 }
 
 public sealed record JsonBudget
@@ -43,6 +61,9 @@ public sealed record JsonTotals
     [JsonPropertyName("resourceTokens")] public required int ResourceTokens { get; init; }
     [JsonPropertyName("resourceFiles")] public required int ResourceFiles { get; init; }
     [JsonPropertyName("percentOfWindow")] public required double PercentOfWindow { get; init; }
+
+    /// <summary>How many paths the scan could not read. 0 means the totals are complete.</summary>
+    [JsonPropertyName("skippedCount")] public required int SkippedCount { get; init; }
 }
 
 public sealed record JsonSkill
@@ -118,7 +139,11 @@ public static class JsonReporter
                 ResourceTokens = report.ResourceTokens,
                 ResourceFiles = report.ResourceFiles,
                 PercentOfWindow = Math.Round(report.PercentOfWindow, 4),
+                SkippedCount = report.SkippedCount,
             },
+            Skipped = report.Skipped
+                .Select(s => new JsonSkipped { Path = s.Path, Reason = s.Reason })
+                .ToList(),
             Skills = report.Skills
                 .OrderByDescending(s => s.MetadataTokens)
                 .Select(s => new JsonSkill

@@ -76,24 +76,31 @@ public static class Program
             ? scanner.ScanPath(o.Path)
             : scanner.ScanDefaultRoots(projectDir);
 
-        if (skills.Count == 0)
-        {
-            if (o.Json)
-            {
-                Console.WriteLine(JsonReporter.Render(
-                    BudgetReport.Create([], o.ContextWindow, o.Fraction, o.MaxDescChars, counter.Name),
-                    Version));
-                return Ok;
-            }
+        var report = BudgetReport.Create(
+            skills, o.ContextWindow, o.Fraction, o.MaxDescChars, counter.Name, scanner.Skipped);
 
+        // JSON always emits a full envelope, empty corpus included, so a pipeline
+        // never has to special-case "found nothing".
+        if (skills.Count == 0 && !o.Json)
+        {
             Console.Error.WriteLine("skillmeter: no skills found.");
             Console.Error.WriteLine();
             Console.Error.WriteLine("  Searched the standard agent locations. Run 'skillmeter roots' to see them,");
             Console.Error.WriteLine("  or point at a directory directly:  skillmeter ./path/to/skills");
-            return Ok;
-        }
 
-        var report = BudgetReport.Create(skills, o.ContextWindow, o.Fraction, o.MaxDescChars, counter.Name);
+            // Finding nothing because nothing is installed and finding nothing
+            // because the directory was unreadable look identical otherwise, and
+            // they call for opposite reactions.
+            if (report.SkippedCount > 0)
+            {
+                Console.Error.WriteLine();
+                Console.Error.WriteLine($"  {report.SkippedCount} path(s) could not be read:");
+                foreach (var s in report.Skipped.Take(5))
+                    Console.Error.WriteLine($"      {s.Path}  —  {s.Reason}");
+            }
+
+            return Evaluate(report, o);
+        }
 
         Console.WriteLine(o.Json
             ? JsonReporter.Render(report, Version)
@@ -101,7 +108,12 @@ public static class Program
                 ? TextReporter.RenderCost(report, o.Top)
                 : TextReporter.RenderBudget(report));
 
-        // CI gating
+        return Evaluate(report, o);
+    }
+
+    /// <summary>Applies the CI gates and reports why, if one tripped.</summary>
+    private static int Evaluate(BudgetReport report, Options o)
+    {
         var gate = Gate.Evaluate(report, o);
         if (gate.Message is not null) Console.Error.WriteLine($"skillmeter: {gate.Message}");
         return gate.Code;

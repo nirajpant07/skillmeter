@@ -94,11 +94,26 @@ public static class TextReporter
         var mismatch = r.Skills.Count(s => s.NameMismatch);
         var trunc = r.Skills.Count(s => s.ListingTruncated);
 
-        if (fat.Count == 0 && noFm == 0 && mismatch == 0 && trunc == 0) return;
+        if (fat.Count == 0 && noFm == 0 && mismatch == 0 && trunc == 0 && r.SkippedCount == 0) return;
 
         sb.AppendLine(Rule());
         sb.AppendLine("  Findings");
         sb.AppendLine(Rule());
+
+        // Listed first and stated plainly: if anything was skipped, every other
+        // number in this report is a lower bound, which changes how to read them.
+        if (r.SkippedCount > 0)
+        {
+            sb.AppendLine($"  {r.SkippedCount} path(s) could not be read — the figures above are a LOWER BOUND:");
+            foreach (var s in r.Skipped.Take(5))
+            {
+                sb.AppendLine($"      {TruncLeft(s.Path, 68)}");
+                sb.AppendLine($"          {Trunc(s.Reason, 64)}");
+            }
+            if (r.SkippedCount > 5)
+                sb.AppendLine($"      … {r.SkippedCount - 5} more (use --json to see all)");
+            sb.AppendLine("  Use --strict to make this exit non-zero.");
+        }
 
         if (fat.Count > 0)
         {
@@ -131,6 +146,13 @@ public static class TextReporter
 
     private static string Trunc(string s, int n)
         => s.Length <= n ? s : s[..(n - 1)] + "…";
+
+    /// <summary>
+    /// Truncates from the left, keeping the tail. For a path the distinctive part is
+    /// the end — a column of identical temp-directory prefixes identifies nothing.
+    /// </summary>
+    private static string TruncLeft(string s, int n)
+        => s.Length <= n ? s : "…" + s[^(n - 1)..];
 
     private static string Num(int n) => n.ToString("N0");
 }

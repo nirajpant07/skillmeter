@@ -56,9 +56,15 @@ Gate a pull request on it:
 - run: npx skillmeter --fail-on 2000
 ```
 
-Exit codes: `0` ok, `1` over budget, `2` usage error, `3` runtime error.
+Exit codes: `0` ok, `1` gate failed, `2` usage error, `3` runtime error.
 
-Note that `1` is only ever returned when you ask for a gate — with `--fail-on` or `--fail-over-budget`. A plain `skillmeter` run reports and exits `0` however far over budget you are.
+Note that `1` is only ever returned when you ask for a gate — with `--fail-on`, `--fail-over-budget` or `--strict`. A plain `skillmeter` run reports and exits `0` however far over budget you are.
+
+If any path can't be read — an unreadable `SKILL.md`, a permission-denied subtree — skillmeter says so, in both output modes, and marks the totals as a lower bound. That matters most in CI, where measuring *less* than reality would otherwise let a gate pass because the scan failed:
+
+```yaml
+- run: npx skillmeter --fail-on 2000 --strict
+```
 
 ## What it measures
 

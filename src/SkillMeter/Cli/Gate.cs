@@ -9,7 +9,13 @@ namespace SkillMeter.Cli;
 public static class ExitCode
 {
     public const int Ok = 0;
-    public const int BudgetExceeded = 1;
+
+    /// <summary>
+    /// A gate the caller explicitly asked for did not hold: --fail-on,
+    /// --fail-over-budget or --strict. Never returned unless one was requested.
+    /// </summary>
+    public const int GateFailed = 1;
+
     public const int UsageError = 2;
     public const int RuntimeError = 3;
 }
@@ -41,10 +47,22 @@ public static class Gate
     /// </summary>
     public static GateResult Evaluate(BudgetReport report, Options options)
     {
+        // Checked first, and deliberately so. If part of the corpus could not be
+        // read, every number below is a lower bound, and "under budget" from an
+        // incomplete scan is a pass caused by the failure itself. That is the one
+        // verdict most worth refusing to give.
+        if (options.Strict && report.SkippedCount > 0)
+        {
+            return new GateResult(
+                ExitCode.GateFailed,
+                $"{report.SkippedCount} path(s) could not be read and the measurement is " +
+                "therefore a lower bound; --strict was requested.");
+        }
+
         if (options.FailOn is { } threshold && report.MetadataTokens > threshold)
         {
             return new GateResult(
-                ExitCode.BudgetExceeded,
+                ExitCode.GateFailed,
                 $"listing metadata is {report.MetadataTokens:N0} tokens, " +
                 $"over the --fail-on threshold of {threshold:N0}.");
         }
@@ -52,7 +70,7 @@ public static class Gate
         if (options.FailOverBudget && report.IsOverBudget)
         {
             return new GateResult(
-                ExitCode.BudgetExceeded,
+                ExitCode.GateFailed,
                 $"listing metadata is {report.MetadataTokens:N0} tokens, " +
                 $"over the {report.BudgetTokens:N0}-token budget.");
         }

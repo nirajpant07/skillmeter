@@ -14,8 +14,14 @@ First release.
 - `cost` — per-skill breakdown across all three progressive-disclosure layers
   (listing metadata, activation body, on-demand resources).
 - `roots` — every scanned location and whether it exists.
-- `--json` with a versioned schema (`schemaVersion: 1`) for scripting and CI.
-- `--fail-on <tokens>` and `--fail-over-budget` as CI gates, with documented exit codes.
+- `--json` with a versioned schema (`schemaVersion: 2`) for scripting and CI.
+- `--fail-on <tokens>`, `--fail-over-budget` and `--strict` as CI gates, with
+  documented exit codes.
+- Skipped-path reporting: every path the scan could not read is counted and surfaced,
+  as a `Findings` block in text output and as `skipped[]` plus `totals.skippedCount`
+  in JSON. Previously an unreadable `SKILL.md` or a permission-denied subtree simply
+  lowered the count in silence and still exited 0 — so a CI gate could pass *because*
+  the scan had failed. `--strict` exits 1 whenever anything was skipped.
 - Cross-agent scanning: `.agents/skills/`, `.claude/skills/`, `.cursor/skills/`,
   `.github/skills/`, `.gemini/skills/`, `~/.codex/skills/`, `~/.config/agents/skills/`.
 - Real BPE token counting via an embedded `o200k_base` vocabulary — fully offline.

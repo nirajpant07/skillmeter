@@ -146,19 +146,29 @@ Every one of these was live, and each has a regression test in `RegressionTests.
   `.mdx`/`.markdown` were confirmed unmatched.)
 - **CI workflows are untested.** The 6-runner NativeAOT release matrix has never run.
   Cross-OS AOT compilation is unsupported, which is why each RID gets its own runner.
-- **`JsonReporter`, `TextReporter` and `Program` have no tests.** Exit codes and the
-  JSON schema are verified only by hand and by the CI smoke step.
-- **`SkillScanner.RealPath` is `internal`** with no `InternalsVisibleTo`, so the most
-  intricate function here is only tested indirectly.
+- ~~**`JsonReporter`, `TextReporter` and `Program` have no tests.**~~ **Closed by T2.**
+  142 tests, up from 73. The gating decision was lifted into `Gate.Evaluate`, the JSON
+  envelope is asserted through the serialized text by key name, and `TextReporter` is
+  covered for over / under / exactly-at budget, empty corpus and the singular
+  `1 token of headroom` case.
+- ~~**`SkillScanner.RealPath` is `internal`** with no `InternalsVisibleTo`.~~
+  **Closed by T2.** Tested directly now, including relative link targets, linked
+  prefixes, cycles and the Linux/Windows case-sensitivity split.
+- **Silent under-counting is fixed but the reasons are best-effort.** T3 records every
+  swallowed IO error, but the reason text comes from the exception message, which
+  differs by platform. Assert on `skippedCount`, not on wording.
 
 ## Conventions
 
 - Comments explain *why*, especially where the code looks odd — the hand-rolled
   frontmatter reader and `RealPath` both look like reinvention until you know what
   they work around. Keep those explanations.
-- `--json` is a contract. Bump `schemaVersion` on any breaking change.
-- Exit codes are a contract: `0` ok, `1` over budget, `2` usage error, `3` runtime.
-  `1` only ever fires when a gate is requested.
+- `--json` is a contract. Bump `schemaVersion` on any breaking change. Currently
+  **2** — `skipped[]` and `totals.skippedCount` were added in T3.
+- Exit codes are a contract: `0` ok, `1` gate failed, `2` usage error, `3` runtime.
+  `1` only ever fires when a gate is requested — `--fail-on`, `--fail-over-budget`
+  or `--strict`. The decision lives in `Gate.Evaluate`, a pure function, so it is
+  asserted directly rather than by spawning a process.
 - Prefer refusing scope over adding it. A tool that stays small still works after six
   months of neglect, which is the actual maintenance model here.
 

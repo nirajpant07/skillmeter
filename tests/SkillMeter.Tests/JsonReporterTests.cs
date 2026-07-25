@@ -22,9 +22,10 @@ public sealed class JsonReporterTests
         Fixtures.Skill("middling", metadataTokens: 90));
 
     [Fact]
-    public void SchemaVersionIsOne()
+    public void SchemaVersionIsTwo()
     {
-        Assert.Equal(1, Render(Sample()).GetProperty("schemaVersion").GetInt32());
+        // Bumped from 1 when skipped[] and totals.skippedCount were added.
+        Assert.Equal(2, Render(Sample()).GetProperty("schemaVersion").GetInt32());
     }
 
     [Fact]
@@ -32,7 +33,7 @@ public sealed class JsonReporterTests
     {
         var root = Render(Sample());
 
-        foreach (var key in new[] { "schemaVersion", "tool", "toolVersion", "tokenizer", "budget", "totals", "skills" })
+        foreach (var key in new[] { "schemaVersion", "tool", "toolVersion", "tokenizer", "budget", "totals", "skills", "skipped" })
             Assert.True(root.TryGetProperty(key, out _), $"missing top-level key '{key}'");
 
         Assert.Equal("skillmeter", root.GetProperty("tool").GetString());
@@ -57,7 +58,7 @@ public sealed class JsonReporterTests
         foreach (var key in new[]
                  {
                      "skillCount", "listedSkillCount", "notListedSkillCount", "metadataTokens",
-                     "bodyTokens", "resourceTokens", "resourceFiles", "percentOfWindow",
+                     "bodyTokens", "resourceTokens", "resourceFiles", "percentOfWindow", "skippedCount",
                  })
             Assert.True(totals.TryGetProperty(key, out _), $"missing totals key '{key}'");
     }
@@ -99,8 +100,11 @@ public sealed class JsonReporterTests
     {
         var root = Render(Fixtures.Report(2_000));
 
-        Assert.Equal(1, root.GetProperty("schemaVersion").GetInt32());
+        Assert.Equal(2, root.GetProperty("schemaVersion").GetInt32());
         Assert.Empty(root.GetProperty("skills").EnumerateArray());
+        // Present and empty rather than absent, so consumers need no null check.
+        Assert.Empty(root.GetProperty("skipped").EnumerateArray());
+        Assert.Equal(0, root.GetProperty("totals").GetProperty("skippedCount").GetInt32());
         Assert.Equal(0, root.GetProperty("totals").GetProperty("skillCount").GetInt32());
         Assert.Equal(0, root.GetProperty("totals").GetProperty("metadataTokens").GetInt32());
         Assert.False(root.GetProperty("budget").GetProperty("overBudget").GetBoolean());

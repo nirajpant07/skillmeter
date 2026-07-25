@@ -27,19 +27,25 @@ public static class HelpText
 
               --fail-on <tokens>  Exit 1 if listing metadata exceeds this. For CI.
               --fail-over-budget  Exit 1 if the listing is over the computed budget.
+              --strict            Exit 1 if any path could not be read, so an
+                                  incomplete scan cannot quietly pass a gate.
 
               --tokenizer <t>     o200k (default) or approx (chars/4, for comparison).
           -h, --help              Show this help.
           -v, --version           Show version.
 
         EXIT CODES
-          0  ok        1  over budget        2  usage error        3  runtime error
+          0  ok        1  gate failed        2  usage error        3  runtime error
+
+          1 is returned only when a gate was requested: --fail-on,
+          --fail-over-budget or --strict. Measuring is never itself a failure.
 
         EXAMPLES
           skillmeter                          Measure everything installed.
           skillmeter cost --top 40            The 40 most expensive skills.
           skillmeter ./skills --json          Measure a pack, emit JSON.
           skillmeter --fail-on 2000           Gate a pull request on listing size.
+          skillmeter --strict                 Fail if anything could not be read.
           skillmeter --window 1000000         Model a 1M-token context window.
 
         HOW IT WORKS

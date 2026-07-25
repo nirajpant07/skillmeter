@@ -23,6 +23,14 @@ public sealed record BudgetReport
 
     public required IReadOnlyList<Skill> Skills { get; init; }
 
+    /// <summary>
+    /// Paths the scan could not read. A non-empty list means every figure here is a
+    /// lower bound, which is why --strict exists.
+    /// </summary>
+    public IReadOnlyList<SkippedPath> Skipped { get; init; } = [];
+
+    public int SkippedCount => Skipped.Count;
+
     public int BudgetTokens => (int)(ContextWindow * BudgetFraction);
 
     /// <summary>Total always-paid listing cost across every installed skill.</summary>
@@ -78,12 +86,14 @@ public sealed record BudgetReport
         int contextWindow,
         double fraction,
         int maxDescChars,
-        string tokenizer) => new()
+        string tokenizer,
+        IReadOnlyList<SkippedPath>? skipped = null) => new()
         {
             Skills = skills,
             ContextWindow = contextWindow,
             BudgetFraction = fraction,
             MaxDescChars = maxDescChars,
             Tokenizer = tokenizer,
+            Skipped = skipped ?? [],
         };
 }
