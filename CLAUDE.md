@@ -96,6 +96,14 @@ Every one of these was live, and each has a regression test in `RegressionTests.
 - **`--fraction NaN`.** Every NaN comparison is false, so a range check alone lets it
   through, and it then poisons the budget and the JSON writer. Use `double.IsFinite`.
 - **`BodyLines`.** A trailing newline terminates the last line; don't report 501.
+- **Hardcoded version.** `Program.Version` was a hand-maintained const, so
+  `dotnet publish -p:Version=x` moved the assembly metadata while the binary kept
+  reporting the checked-in number — from the version flag and from `toolVersion` in
+  the JSON contract. Every release would have shipped binaries that misreport
+  themselves. It now comes from MSBuild `$(Version)` through a generated
+  `BuildInfo` const (generated, not reflected, because
+  `AssemblyInformationalVersionAttribute` lookup is the reflection AOT disallows).
+  `release.yml` asserts the built binary reports the version it was stamped with.
 
 ## Known gaps
 
@@ -116,10 +124,12 @@ Every one of these was live, and each has a regression test in `RegressionTests.
     reparse-point logic including the linked-*prefix* restart, because `mklink /J`
     stores its target verbatim. The one branch junctions cannot reach is a
     **relative** link target; Windows junctions are always absolute.
-  - **NativeAOT has never been compiled for Windows.** `dotnet publish -r win-x64`
-    fails without the MSVC linker (see Build). A `PublishTrimmed=true TrimMode=full`
-    build *does* work and returns identical counts, so trimming does not drop the
-    embedded o200k vocabulary; only the ILCompiler/link step is unproven.
+  - ~~**NativeAOT has never been compiled for Windows.**~~ **Resolved in CI.** All
+    six RIDs now build under NativeAOT and each runner smoke-runs its own binary
+    (`--help`, `--version`, a real scan) before archiving. Sizes land at 4.9–5.1 MB,
+    matching the figure above. Locally, `dotnet publish -r win-x64` still fails
+    without the MSVC linker — that is a workstation prerequisite, not a product gap
+    (see Build).
 
 - **Line endings shift layers 2 and 3, not the budget.** Frontmatter is `\r`-stripped,
   so `metadataTokens` — the headline number and what `--fail-on` gates — is identical
