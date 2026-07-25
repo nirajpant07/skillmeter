@@ -343,18 +343,33 @@ jobs:
           fi
           echo "authenticated to npm as: $who"
 
-          # Publishing over an existing version is impossible on npm, and the error
-          # arrives after some packages have already gone up. Check first.
+          # Surveys what already exists rather than refusing outright. A version
+          # cannot be reused on npm, but a *partial* publish is a legitimate resume
+          # state — the publish step skips whatever already landed. Only a complete
+          # set is a genuine "pick a new version".
           V="${{ steps.v.outputs.version }}"
-          for p in skillmeter skillmeter-linux-x64 skillmeter-linux-arm64 \
-                   skillmeter-darwin-x64 skillmeter-darwin-arm64 \
-                   skillmeter-win32-x64 skillmeter-win32-arm64; do
+          ALL="skillmeter skillmeter-linux-x64 skillmeter-linux-arm64
+               skillmeter-darwin-x64 skillmeter-darwin-arm64
+               skillmeter-win32-x64 skillmeter-win32-arm64"
+
+          present=0; total=0
+          for p in $ALL; do
+            total=$((total + 1))
             if npm view "$p@$V" version >/dev/null 2>&1; then
-              echo "::error::$p@$V is already published. Versions cannot be reused on npm; pick a new one."
-              exit 1
+              echo "  already published: $p@$V"
+              present=$((present + 1))
+            else
+              echo "  free:              $p@$V"
             fi
           done
-          echo "all 7 package names are free at version $V"
+
+          if [ "$present" -eq "$total" ]; then
+            echo "::error::every package is already published at $V. Nothing to do; pick a new version."
+            exit 1
+          fi
+          if [ "$present" -gt 0 ]; then
+            echo "::warning::resuming a partial publish — $present of $total already on npm at $V."
+          fi
 
       # Platform packages go FIRST. The wrapper pins them by exact version, so
       # publishing it first leaves a window where installs resolve nothing.
@@ -505,22 +520,34 @@ jobs:
             exit 1
           fi
 
-          # NuGet cannot delete or overwrite a published version, so a collision has
-          # to be caught before the first push rather than partway through the seven.
+          # Reports rather than refuses, for the same reason as npm: `dotnet nuget
+          # push --skip-duplicate` makes a partial push resumable, so an existing
+          # package is only fatal when the whole set is already up.
           V="${{ steps.v.outputs.version }}"
-          for id in skillmeter skillmeter.win-x64 skillmeter.win-arm64 \
-                    skillmeter.linux-x64 skillmeter.linux-arm64 \
-                    skillmeter.osx-x64 skillmeter.osx-arm64; do
+          ALL="skillmeter skillmeter.win-x64 skillmeter.win-arm64
+               skillmeter.linux-x64 skillmeter.linux-arm64
+               skillmeter.osx-x64 skillmeter.osx-arm64"
+
+          present=0; total=0
+          for id in $ALL; do
+            total=$((total + 1))
             lower=$(echo "$id" | tr 'A-Z' 'a-z')
-            url="https://api.nuget.org/v3-flatcontainer/$lower/index.json"
-            if curl -sf "$url" -o /tmp/v.json 2>/dev/null; then
-              if grep -qi "\"$V\"" /tmp/v.json; then
-                echo "::error::$id $V is already on nuget.org. Versions are permanent; pick a new one."
-                exit 1
-              fi
+            if curl -sf "https://api.nuget.org/v3-flatcontainer/$lower/index.json" -o /tmp/v.json 2>/dev/null \
+               && grep -qi "\"$V\"" /tmp/v.json; then
+              echo "  already published: $id $V"
+              present=$((present + 1))
+            else
+              echo "  free:              $id $V"
             fi
           done
-          echo "all 7 package ids are free at version $V"
+
+          if [ "$present" -eq "$total" ]; then
+            echo "::error::every package is already on nuget.org at $V. Nothing to do; pick a new version."
+            exit 1
+          fi
+          if [ "$present" -gt 0 ]; then
+            echo "::warning::resuming a partial push — $present of $total already on nuget.org at $V."
+          fi
 
       - name: Push to NuGet
         env:
