@@ -372,14 +372,30 @@ jobs:
             echo "DRY RUN — nothing will be published"
           fi
 
+          # `npm whoami` in the preflight proves the token authenticates; it does NOT
+          # prove it may publish. A token without 2FA bypass passes whoami and then
+          # 403s here. Name the remedy rather than leaving the raw npm error.
+          explain_failure () {
+            echo "::error::npm publish failed for $1."
+            cat <<'EOF'
+          If the error mentions two-factor authentication:
+            the token authenticates but is not allowed to publish. Replace it with
+            either a Classic "Automation" token (npmjs.com -> Access Tokens ->
+            Generate New Token -> Classic -> Automation), which bypasses 2FA by
+            design, or a Granular Access Token created with 2FA bypass enabled.
+            Update the NPM_TOKEN repository secret and re-run.
+          EOF
+            exit 1
+          }
+
           for d in npm-build/skillmeter-*; do
             echo "::group::publish $d"
-            (cd "$d" && npm publish $FLAGS)
+            (cd "$d" && npm publish $FLAGS) || explain_failure "$d"
             echo "::endgroup::"
           done
 
           echo "::group::publish wrapper"
-          (cd npm-build/skillmeter && npm publish $FLAGS)
+          (cd npm-build/skillmeter && npm publish $FLAGS) || explain_failure "wrapper"
           echo "::endgroup::"
 
   publish-nuget:
