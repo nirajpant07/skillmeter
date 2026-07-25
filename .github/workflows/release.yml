@@ -128,10 +128,30 @@ jobs:
           fi
           ls -l dist
 
+      # The RID-specific dotnet tool package. The pointer package's
+      # DotnetToolSettings.xml maps each RID to `skillmeter.<rid>`, so these must
+      # exist or `dotnet tool install` resolves to nothing. Built here because it
+      # AOT-compiles, and cross-OS AOT is unsupported.
+      - name: Pack dotnet tool (${{ matrix.rid }})
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet pack src/SkillMeter/SkillMeter.csproj \
+            -c Release -r ${{ matrix.rid }} \
+            -p:Version=${{ steps.v.outputs.version }} \
+            -o nupkg
+          ls -l nupkg
+
       - uses: actions/upload-artifact@v4
         with:
           name: skillmeter-${{ matrix.rid }}
           path: dist/*
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nupkg-${{ matrix.rid }}
+          path: nupkg/*.nupkg
           if-no-files-found: error
 
   release:
@@ -182,3 +202,217 @@ jobs:
         run: |
           echo "Dry run: six binaries built and archived, no release created." >> "$GITHUB_STEP_SUMMARY"
           ls -l staging >> "$GITHUB_STEP_SUMMARY"
+
+  # --------------------------------------------------------------------------
+  # Registry publishing.
+  #
+  # Both registries are effectively write-once: NuGet cannot delete a published
+  # package (only unlist it) and npm's unpublish window is narrow and blocked once
+  # anything depends on you. A botched version number is therefore burned forever
+  # on both. Every step below runs --dry-run unless this is a real tag push or the
+  # operator explicitly set dry_run=false.
+  # --------------------------------------------------------------------------
+
+  publish-npm:
+    name: npm
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write        # required for npm provenance
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: skillmeter-*
+          path: staging
+          merge-multiple: true
+
+      - name: Resolve version
+        id: v
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "push" ]; then v="${GITHUB_REF_NAME#v}"; else v="${{ inputs.version }}"; fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+
+      # Six platform packages, each carrying one binary and declaring the os/cpu it
+      # is for. npm installs exactly the matching one and skips the rest; the
+      # wrapper in npm/skillmeter then execs whichever landed.
+      - name: Build platform packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          V="${{ steps.v.outputs.version }}"
+          mkdir -p npm-build
+
+          emit () { # rid os cpu exe archive
+            rid=$1; os=$2; cpu=$3; exe=$4; ar=$5
+            dir="npm-build/skillmeter-$os-$cpu"
+            mkdir -p "$dir/bin"
+
+            case "$ar" in
+              *.tar.gz) tar -xzf "staging/$ar" -C "$dir/bin" "$exe" ;;
+              *.zip)    unzip -o -j "staging/$ar" "$exe" -d "$dir/bin" >/dev/null ;;
+            esac
+            # tar preserves the executable bit; the zip path has no bit to preserve.
+            chmod +x "$dir/bin/$exe" 2>/dev/null || true
+
+            node -e '
+              const [dir,name,ver,os,cpu] = process.argv.slice(1);
+              require("fs").writeFileSync(dir + "/package.json", JSON.stringify({
+                name, version: ver,
+                description: `skillmeter native binary for ${os}-${cpu}.`,
+                license: "MIT",
+                repository: { type: "git", url: "git+https://github.com/nirajpant07/skillmeter.git" },
+                homepage: "https://github.com/nirajpant07/skillmeter#readme",
+                os: [os], cpu: [cpu], files: ["bin/"],
+                preferUnplugged: true
+              }, null, 2) + "\n");
+            ' "$dir" "skillmeter-$os-$cpu" "$V" "$os" "$cpu"
+
+            cp README.md LICENSE "$dir/" 2>/dev/null || true
+            echo "built skillmeter-$os-$cpu"
+          }
+
+          emit linux-x64   linux  x64   skillmeter     "skillmeter-$V-linux-x64.tar.gz"
+          emit linux-arm64 linux  arm64 skillmeter     "skillmeter-$V-linux-arm64.tar.gz"
+          emit osx-x64     darwin x64   skillmeter     "skillmeter-$V-osx-x64.tar.gz"
+          emit osx-arm64   darwin arm64 skillmeter     "skillmeter-$V-osx-arm64.tar.gz"
+          emit win-x64     win32  x64   skillmeter.exe "skillmeter-$V-win-x64.zip"
+          emit win-arm64   win32  arm64 skillmeter.exe "skillmeter-$V-win-arm64.zip"
+
+          # The wrapper's version and its optionalDependencies must all match the
+          # release, or npm resolves a platform package that was never published.
+          cp -r npm/skillmeter npm-build/skillmeter
+          node -e '
+            const fs = require("fs"), p = "npm-build/skillmeter/package.json";
+            const j = JSON.parse(fs.readFileSync(p, "utf8"));
+            j.version = process.argv[1];
+            for (const k of Object.keys(j.optionalDependencies)) j.optionalDependencies[k] = process.argv[1];
+            fs.writeFileSync(p, JSON.stringify(j, null, 2) + "\n");
+          ' "$V"
+          cp README.md npm-build/skillmeter/
+
+          find npm-build -name package.json -maxdepth 2 -exec sh -c 'echo "--- {}"; cat {}' \;
+
+      - name: Guard — token present for a real publish
+        if: github.event_name == 'push' || inputs.dry_run == false
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        shell: bash
+        run: |
+          if [ -z "${NPM_TOKEN:-}" ]; then
+            echo "::error::NPM_TOKEN is not set. Add it under Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+
+      # Platform packages go FIRST. The wrapper pins them by exact version, so
+      # publishing it first leaves a window where installs resolve nothing.
+      - name: Publish to npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          REAL: ${{ github.event_name == 'push' || inputs.dry_run == false }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # --provenance only on a real publish: it performs an OIDC exchange with
+          # the registry, which has nothing to talk to under --dry-run.
+          if [ "$REAL" = "true" ]; then
+            FLAGS="--access public --provenance"
+          else
+            FLAGS="--access public --dry-run"
+            echo "DRY RUN — nothing will be published"
+          fi
+
+          for d in npm-build/skillmeter-*; do
+            echo "::group::publish $d"
+            (cd "$d" && npm publish $FLAGS)
+            echo "::endgroup::"
+          done
+
+          echo "::group::publish wrapper"
+          (cd npm-build/skillmeter && npm publish $FLAGS)
+          echo "::endgroup::"
+
+  publish-nuget:
+    name: nuget
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: nupkg-*
+          path: staging
+          merge-multiple: true
+
+      - name: Resolve version
+        id: v
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "push" ]; then v="${GITHUB_REF_NAME#v}"; else v="${{ inputs.version }}"; fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+
+      # The RID-agnostic pointer package. Contains no binary — only the
+      # DotnetToolSettings.xml mapping each RID to its skillmeter.<rid> package —
+      # so it needs no AOT toolchain and is built here rather than on the matrix.
+      - name: Pack pointer package
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet pack src/SkillMeter/SkillMeter.csproj \
+            -c Release -p:Version=${{ steps.v.outputs.version }} -o staging
+
+          echo "packages to push:"; ls -l staging
+          count=$(ls staging/*.nupkg | wc -l)
+          # 6 RID packages + 1 pointer. Pushing a partial set leaves the pointer
+          # resolving to packages that do not exist, which is worse than not
+          # publishing at all — and on NuGet it cannot be undone.
+          if [ "$count" -ne 7 ]; then echo "::error::expected 7 nupkg, found $count"; exit 1; fi
+
+      - name: Guard — API key present for a real publish
+        if: github.event_name == 'push' || inputs.dry_run == false
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        shell: bash
+        run: |
+          if [ -z "${NUGET_API_KEY:-}" ]; then
+            echo "::error::NUGET_API_KEY is not set. Add it under Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+
+      - name: Push to NuGet
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+          REAL: ${{ github.event_name == 'push' || inputs.dry_run == false }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$REAL" != "true" ]; then
+            echo "DRY RUN — validating packages only, nothing will be pushed."
+            for p in staging/*.nupkg; do
+              unzip -l "$p" | head -20
+              echo "--- $p OK"
+            done
+            exit 0
+          fi
+
+          dotnet nuget push "staging/*.nupkg" \
+            --api-key "$NUGET_API_KEY" \
+            --source https://api.nuget.org/v3/index.json \
+            --skip-duplicate

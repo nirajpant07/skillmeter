@@ -24,12 +24,21 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
 
     <!-- dotnet tool packaging. ToolPackageRuntimeIdentifiers makes `dotnet pack`
-         emit a RID-agnostic pointer package plus per-RID packages; the CLI picks
-         the right one transparently. Requires .NET SDK 10+. -->
+         emit a RID-agnostic pointer package whose DotnetToolSettings.xml maps each
+         RID to a `skillmeter.<rid>` package; `dotnet pack -r <rid>` produces those.
+         All of them must be pushed together or the pointer resolves to nothing.
+         Requires .NET SDK 10+.
+
+         `any` is deliberately absent. It would advertise a `skillmeter.any`
+         fallback package, and NativeAOT has no portable target to build one from —
+         so listing it would point unsupported platforms at a package that never
+         exists. Without it they get a plain "no compatible version" from NuGet.
+         Adding an IL-based `skillmeter.any` later is possible, but it would need a
+         .NET runtime installed and so cannot be the single-binary promise. -->
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>skillmeter</ToolCommandName>
     <PackageId>skillmeter</PackageId>
-    <ToolPackageRuntimeIdentifiers>win-x64;win-arm64;linux-x64;linux-arm64;osx-x64;osx-arm64;any</ToolPackageRuntimeIdentifiers>
+    <ToolPackageRuntimeIdentifiers>win-x64;win-arm64;linux-x64;linux-arm64;osx-x64;osx-arm64</ToolPackageRuntimeIdentifiers>
   </PropertyGroup>
 
   <!-- Single-sources the version into the binary.
