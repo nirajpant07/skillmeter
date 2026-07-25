@@ -82,15 +82,20 @@ jobs:
           node -e '
             const d = require("./_smoke/out.json");
             const eq = (a, b, m) => { if (JSON.stringify(a) !== JSON.stringify(b)) { console.error(`FAIL ${m}: ${JSON.stringify(a)} != ${JSON.stringify(b)}`); process.exit(1); } };
-            eq(d.schemaVersion, 1, "schemaVersion");
+            eq(d.schemaVersion, 2, "schemaVersion");
             eq(d.skills.length, 2, "skill count");
-            for (const k of ["tool","toolVersion","tokenizer","budget","totals","skills"])
+            for (const k of ["tool","toolVersion","tokenizer","budget","totals","skills","skipped"])
               if (!(k in d)) { console.error("FAIL missing key " + k); process.exit(1); }
             const t = d.skills.map(s => s.metadataTokens);
             eq(t, [...t].sort((a,b) => b-a), "skills sorted by metadataTokens desc");
+            // A clean corpus must report nothing skipped, and report it explicitly
+            // rather than by omitting the keys.
+            eq(d.skipped, [], "skipped");
+            eq(d.totals.skippedCount, 0, "skippedCount");
             // The folded scalar must collapse to spaces, never newlines.
             const beta = d.skills.find(s => s.name === "beta");
             if (!beta) { console.error("FAIL beta missing"); process.exit(1); }
+            if (/\n/.test(beta.name)) { console.error("FAIL newline in folded scalar"); process.exit(1); }
             console.log("json envelope OK");
           '
 
@@ -115,3 +120,9 @@ jobs:
           run --nope                >/dev/null 2>&1; check "bad flag"       2 $?
           run _smoke/missing        >/dev/null 2>&1; check "missing dir"    2 $?
           run _smoke --fraction NaN >/dev/null 2>&1; check "--fraction NaN" 2 $?
+
+          # --strict passes on a corpus where nothing was skipped. The failing
+          # direction needs an actually-unreadable file and is covered by the unit
+          # tests, which can hold an exclusive lock; doing that portably here would
+          # add more shell than it is worth.
+          run _smoke --strict       >/dev/null 2>&1; check "--strict clean"  0 $?
