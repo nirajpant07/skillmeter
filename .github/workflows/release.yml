@@ -30,6 +30,7 @@ jobs:
   build:
     name: ${{ matrix.rid }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -38,7 +39,15 @@ jobs:
           - { rid: linux-arm64, os: ubuntu-24.04-arm }
           - { rid: win-x64,     os: windows-latest }
           - { rid: win-arm64,   os: windows-11-arm }
-          - { rid: osx-x64,     os: macos-13 }
+          # macos-13 was retired; the job queued for 9+ hours instead of failing,
+          # because GitHub parks a job with no matching runner label until its 24h
+          # limit rather than erroring. macos-15-intel is the current x86_64 image
+          # (verified: uname -m = x86_64). If osx-x64 ever queues indefinitely
+          # again, that label has been retired too — probe candidates with a
+          # throwaway matrix of `runs-on` labels rather than guessing.
+          - { rid: osx-x64,     os: macos-15-intel }
+          # Left as the moving alias deliberately: there is no "-intel"-style alias
+          # to pin against for arm64, and a pinned image is what broke above.
           - { rid: osx-arm64,   os: macos-latest }
 
     steps:
