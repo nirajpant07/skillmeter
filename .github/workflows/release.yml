@@ -305,16 +305,41 @@ jobs:
 
           find npm-build -name package.json -maxdepth 2 -exec sh -c 'echo "--- {}"; cat {}' \;
 
-      - name: Guard — token present for a real publish
+      # Read-only credential check, run before any publish. Catches the common
+      # failures — wrong token type, expired token, granular token that does not
+      # cover these names — while they are still free to fix.
+      - name: Preflight — npm credential
         if: github.event_name == 'push' || inputs.dry_run == false
         env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         shell: bash
         run: |
+          set -euo pipefail
           if [ -z "${NPM_TOKEN:-}" ]; then
             echo "::error::NPM_TOKEN is not set. Add it under Settings → Secrets and variables → Actions."
             exit 1
           fi
+
+          if ! who=$(npm whoami 2>&1); then
+            echo "::error::npm rejected the token: $who"
+            echo "Use an Automation token, or a Granular token with read+write covering skillmeter and skillmeter-*."
+            exit 1
+          fi
+          echo "authenticated to npm as: $who"
+
+          # Publishing over an existing version is impossible on npm, and the error
+          # arrives after some packages have already gone up. Check first.
+          V="${{ steps.v.outputs.version }}"
+          for p in skillmeter skillmeter-linux-x64 skillmeter-linux-arm64 \
+                   skillmeter-darwin-x64 skillmeter-darwin-arm64 \
+                   skillmeter-win32-x64 skillmeter-win32-arm64; do
+            if npm view "$p@$V" version >/dev/null 2>&1; then
+              echo "::error::$p@$V is already published. Versions cannot be reused on npm; pick a new one."
+              exit 1
+            fi
+          done
+          echo "all 7 package names are free at version $V"
 
       # Platform packages go FIRST. The wrapper pins them by exact version, so
       # publishing it first leaves a window where installs resolve nothing.
@@ -346,7 +371,10 @@ jobs:
 
   publish-nuget:
     name: nuget
-    needs: build
+    # Deliberately after npm rather than beside it. Both are write-once, but npm's
+    # unpublish window gives a few hours of recourse and NuGet gives none — so the
+    # unrecoverable registry goes last, once npm has proven the version is good.
+    needs: [build, publish-npm]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -388,16 +416,34 @@ jobs:
           # publishing at all — and on NuGet it cannot be undone.
           if [ "$count" -ne 7 ]; then echo "::error::expected 7 nupkg, found $count"; exit 1; fi
 
-      - name: Guard — API key present for a real publish
+      - name: Preflight — API key and version availability
         if: github.event_name == 'push' || inputs.dry_run == false
         env:
           NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
         shell: bash
         run: |
+          set -euo pipefail
           if [ -z "${NUGET_API_KEY:-}" ]; then
             echo "::error::NUGET_API_KEY is not set. Add it under Settings → Secrets and variables → Actions."
             exit 1
           fi
+
+          # NuGet cannot delete or overwrite a published version, so a collision has
+          # to be caught before the first push rather than partway through the seven.
+          V="${{ steps.v.outputs.version }}"
+          for id in skillmeter skillmeter.win-x64 skillmeter.win-arm64 \
+                    skillmeter.linux-x64 skillmeter.linux-arm64 \
+                    skillmeter.osx-x64 skillmeter.osx-arm64; do
+            lower=$(echo "$id" | tr 'A-Z' 'a-z')
+            url="https://api.nuget.org/v3-flatcontainer/$lower/index.json"
+            if curl -sf "$url" -o /tmp/v.json 2>/dev/null; then
+              if grep -qi "\"$V\"" /tmp/v.json; then
+                echo "::error::$id $V is already on nuget.org. Versions are permanent; pick a new one."
+                exit 1
+              fi
+            fi
+          done
+          echo "all 7 package ids are free at version $V"
 
       - name: Push to NuGet
         env:
@@ -415,7 +461,22 @@ jobs:
             exit 0
           fi
 
-          dotnet nuget push "staging/*.nupkg" \
-            --api-key "$NUGET_API_KEY" \
-            --source https://api.nuget.org/v3/index.json \
-            --skip-duplicate
+          V="${{ steps.v.outputs.version }}"
+          SRC=https://api.nuget.org/v3/index.json
+
+          # RID packages first, pointer LAST. The pointer is inert on its own, but a
+          # pointer published without its targets is a broken install that NuGet
+          # cannot delete. This ordering means an API key whose glob covers
+          # `skillmeter` but not `skillmeter.win-x64` fails on the first RID package,
+          # before anything user-visible exists.
+          for rid in win-x64 win-arm64 linux-x64 linux-arm64 osx-x64 osx-arm64; do
+            echo "::group::push skillmeter.$rid"
+            dotnet nuget push "staging/skillmeter.$rid.$V.nupkg" \
+              --api-key "$NUGET_API_KEY" --source "$SRC" --skip-duplicate
+            echo "::endgroup::"
+          done
+
+          echo "::group::push pointer skillmeter"
+          dotnet nuget push "staging/skillmeter.$V.nupkg" \
+            --api-key "$NUGET_API_KEY" --source "$SRC" --skip-duplicate
+          echo "::endgroup::"
