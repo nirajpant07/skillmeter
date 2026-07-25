@@ -350,12 +350,25 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          V="${{ steps.v.outputs.version }}"
+
+          # A semver prerelease must NOT become the `latest` dist-tag. npm defaults
+          # to latest regardless of the version string, so publishing 0.0.1-alpha.1
+          # unguarded would make a rehearsal build the thing `npx skillmeter`
+          # installs for everyone. NuGet infers prerelease from semver by itself;
+          # npm does not.
+          case "$V" in
+            *-*) TAG=next ;;
+            *)   TAG=latest ;;
+          esac
+          echo "publishing $V under dist-tag: $TAG"
+
           # --provenance only on a real publish: it performs an OIDC exchange with
           # the registry, which has nothing to talk to under --dry-run.
           if [ "$REAL" = "true" ]; then
-            FLAGS="--access public --provenance"
+            FLAGS="--access public --provenance --tag $TAG"
           else
-            FLAGS="--access public --dry-run"
+            FLAGS="--access public --dry-run --tag $TAG"
             echo "DRY RUN — nothing will be published"
           fi
 
