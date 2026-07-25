@@ -1,0 +1,87 @@
+# TEMPORARY. Removes the 0.0.1-alpha.8 rehearsal artifacts, leaving only the live
+# 0.1.0 release. Needs NPM_TOKEN and NUGET_API_KEY, so it has to run in CI.
+#
+# What it can and cannot do:
+#   npm    — removes the `next` dist-tag, so nothing points at the prerelease.
+#            Deleting the version itself needs an interactive OTP and is not
+#            possible from CI (npm requires TFA for DELETE even with an
+#            automation token).
+#   nuget  — unlists 0.0.1-alpha.8. NuGet never truly deletes; unlisting removes
+#            it from search and from version resolution, which is the intended
+#            "remove" on that registry.
+#
+# Delete this workflow once it has run.
+name: prune-prerelease
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type PRUNE to act. Anything else reports only.'
+        required: true
+        default: 'report-only'
+
+permissions:
+  contents: read
+
+env:
+  PRERELEASE: 0.0.1-alpha.8
+  KEEP: 0.1.0
+
+jobs:
+  prune:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: npm — drop the next dist-tag
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          CONFIRM: ${{ inputs.confirm }}
+        shell: bash
+        run: |
+          set -uo pipefail
+          cur=$(npm dist-tag ls skillmeter 2>/dev/null | grep '^next:' || true)
+          if [ -z "$cur" ]; then echo "no 'next' dist-tag on skillmeter — nothing to do"; exit 0; fi
+          echo "current: $cur"
+
+          if [ "$CONFIRM" != "PRUNE" ]; then echo "(would remove it; re-run with confirm=PRUNE)"; exit 0; fi
+
+          # Guard: never touch `latest`, which points at the live release.
+          npm dist-tag rm skillmeter next && echo "removed 'next'" || echo "::warning::could not remove 'next'"
+          echo "now:"; npm dist-tag ls skillmeter || true
+
+      - name: nuget — unlist the prerelease
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+          CONFIRM: ${{ inputs.confirm }}
+        shell: bash
+        run: |
+          set -uo pipefail
+          SRC=https://api.nuget.org/v3/index.json
+
+          for id in skillmeter skillmeter.win-x64 skillmeter.win-arm64 \
+                    skillmeter.linux-x64 skillmeter.linux-arm64 \
+                    skillmeter.osx-x64 skillmeter.osx-arm64; do
+
+            # Hard refusal to act on the live version, whatever else changes.
+            if [ "$PRERELEASE" = "$KEEP" ]; then echo "::error::refusing: prerelease equals keep version"; exit 1; fi
+
+            if [ "$CONFIRM" != "PRUNE" ]; then
+              echo "would unlist $id $PRERELEASE (keeping $KEEP)"
+              continue
+            fi
+
+            echo "::group::unlist $id $PRERELEASE"
+            dotnet nuget delete "$id" "$PRERELEASE" \
+              --api-key "$NUGET_API_KEY" --source "$SRC" --non-interactive \
+              || echo "::warning::could not unlist $id $PRERELEASE"
+            echo "::endgroup::"
+          done
