@@ -10,7 +10,13 @@
 #            it from search and from version resolution, which is the intended
 #            "remove" on that registry.
 #
-# Delete this workflow once it has run.
+#            NOT YET DONE. Every unlist returned 403 Forbidden: NuGet API keys
+#            carry separate "Push" and "Unlist" scopes, and NUGET_API_KEY was
+#            created Push-only. To finish, either add an Unlist-scoped key (glob
+#            skillmeter*) and re-run this with confirm=PRUNE, or unlist by hand at
+#            nuget.org -> Manage Packages -> each package -> Listing.
+#
+# Retained only until that unlist happens; delete it afterwards.
 name: prune-prerelease
 
 on:
