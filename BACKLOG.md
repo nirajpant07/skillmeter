@@ -52,6 +52,17 @@ README rather than shipping a false claim.
 
 ---
 
+## T2 — Tests for the untested third of the codebase ✅ DONE (2026-07-25)
+
+142 tests, up from 73. Exit-code decision extracted into `Gate.Evaluate` (pure);
+full `--json` envelope asserted through the serialized text by key name;
+`InternalsVisibleTo` added and `RealPath` tested directly; `TextReporter` covered for
+over / under / exactly-at budget, empty corpus and the singular `1 token of headroom`
+case; `HelpText` defaults pinned in both directions.
+
+<details>
+<summary>Original spec</summary>
+
 ## T2 — Tests for the untested third of the codebase
 
 `JsonReporter`, `TextReporter` and `Program` have zero tests. The JSON schema and exit
@@ -70,7 +81,21 @@ codes are public contracts verified only by hand.
 
 **Done when:** every documented contract in `HelpText.cs` has a test asserting it.
 
+</details>
+
 ---
+
+## T3 — Diagnose skipped files instead of silently under-counting ✅ DONE (2026-07-25)
+
+Read failures are counted with path and reason, surfaced as a `Findings` block in
+text and `skipped[]` + `totals.skippedCount` in JSON, `schemaVersion` bumped to 2, and
+`--strict` exits 1 when anything was skipped. `--strict` is evaluated *before* the
+budget gates, because an incomplete scan must never be reported as under budget.
+Resource reads are now caught per file rather than per directory — one unreadable
+resource used to abandon every remaining file beside it.
+
+<details>
+<summary>Original spec</summary>
 
 ## T3 — Diagnose skipped files instead of silently under-counting
 
@@ -85,6 +110,8 @@ gates CI, silently measuring less than reality is the worst failure mode availab
 
 **Done when:** scanning a directory containing an unreadable file reports it in both
 output modes.
+
+</details>
 
 ---
 
@@ -125,6 +152,28 @@ registries without manual intervention.
 
 ---
 
+## T5 — Demo asset ✅ DONE (2026-07-25), with one deviation
+
+Built as an **animated SVG** (`docs/demo.svg`), not a GIF. Rationale: recording a
+real terminal needs capture tooling this environment does not have, and an animated
+SVG is the better asset anyway — it stays crisp at GitHub's rendered width, is a few
+KB rather than a few MB, and is the same format `svg-term` produces from asciinema.
+It carries a `prefers-reduced-motion` fallback that holds the final frame.
+
+**The content is real.** Both scenes are captured verbatim from actual runs against
+actual clones, not mocked up:
+
+| | packs | skills | listing | verdict |
+|---|---|---|---|---|
+| before | `obra/superpowers` + `anthropics/skills` | 32 | **1,999 / 2,000** | 1 token of headroom |
+| after | \+ `managedcode/dotnet-skills` | 207 | **25,293** | 12.6x, 166 go dark |
+
+If a true screen-recorded GIF is wanted for other channels, the reproduction steps
+are in the table above; `asciinema rec` plus `agg` will produce one.
+
+<details>
+<summary>Original spec</summary>
+
 ## T5 — Demo GIF
 
 The launch asset. Evidence says demonstrations outperform descriptions by roughly 10x.
@@ -134,6 +183,8 @@ budget**, then install one more pack and watch skills go dark. That contrast is 
 whole pitch and it takes about fifteen seconds.
 
 Keep it short, no music, readable at GitHub's rendered width.
+
+</details>
 
 ---
 

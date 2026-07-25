@@ -42,13 +42,23 @@ for convenience.
 These were measured, then re-derived after bug fixes. If you change the scanner or
 parser, **re-measure and update the README**, don't guess.
 
+Re-verified on Windows 2026-07-25. The two-pack headline reproduces exactly. The
+`dotnet-skills` figures moved (174→175 listed, 23,227→23,294 tok, 150→151 dark)
+because the **upstream pack gained a skill**, not because anything here changed —
+the 179-file exclusion count is still exact. Any figure quoting a third-party
+catalog drifts as that catalog does; re-measure before quoting it again.
+
+Note `git clone` of that pack fails on Windows with "Filename too long" unless
+`git -c core.longpaths=true` is used. That is git's own default, independent of the
+OS `LongPathsEnabled` setting; skillmeter itself reads 400+ character paths fine.
+
 | | value |
 |---|---|
 | Budget model | `skillListingBudgetFraction` 0.01 x 200,000 = **2,000 tokens** |
 | Per-skill listing cap | `skillListingMaxDescChars` = **1,536 chars** |
 | Launch headline | `obra/superpowers` + `anthropics/skills` = **1,999 tokens vs 2,000** |
 | 4-pack corpus | 235 found / **230 listed** / 5 excluded → **26,525 tok, 13.3x**, 182 dark |
-| `managedcode/dotnet-skills` | 179 files / 174 listed → 23,227 tok, **11.6x**, 150 dark |
+| `managedcode/dotnet-skills` | 179 files / 175 listed → 23,294 tok, **11.6x**, 151 dark |
 | Bodies / resources | 502,247 tok / 1,256,645 tok across 593 files |
 | `chars/4` over-count | ~19% (26,525 real vs 32,566 approximate) |
 | Binary | 4.9 MB, libc-only, **3 ms cold start**, 743 ms for 235 skills |

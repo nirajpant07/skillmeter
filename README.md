@@ -4,6 +4,11 @@
 
 Claude Code reserves about **1% of the context window** for the skill listing — roughly **2,000 tokens** to hold the name and description of *every* skill you have installed. Go over, and descriptions for the least-used skills get dropped. The agent still sees the name. It just can't tell what the skill is for any more.
 
+<p align="center">
+  <img src="docs/demo.svg" width="600"
+       alt="Two skill packs sit at 1,999 tokens against a 2,000-token budget. Installing one more pack pushes the listing to 25,293 tokens — 12.6x the allowance — and 166 skills lose their description.">
+</p>
+
 Two of the most popular skill packs in existence put you at **1,999 tokens against a 2,000-token budget**:
 
 ```
@@ -16,18 +21,18 @@ $ skillmeter
   Close to the edge — the next pack you install will start evicting skills.
 ```
 
-The next pack you install is not free. Here is one real, actively-maintained catalog of 179 skills, 174 of which enter the listing:
+The next pack you install is not free. Here is one real, actively-maintained catalog of 179 skills, 175 of which enter the listing:
 
 ```
 $ skillmeter --path ./dotnet-skills
 
-  174 skills   23,227 tokens of listing metadata
+  175 skills   23,294 tokens of listing metadata
   budget: 2,000 tokens  (1.0 % of a 200,000-token window)
 
-  OVER BUDGET by 21,227 tokens — 11.6x the allowance.
+  OVER BUDGET by 21,294 tokens — 11.6x the allowance.
 
   24 skills keep their description.
-  150 go dark — the agent sees a name it cannot route to.
+  151 go dark — the agent sees a name it cannot route to.
 ```
 
 ## Install

@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 346" width="600" height="346" role="img"
+     aria-label="skillmeter demo: two skill packs sit at 1,999 tokens against a 2,000-token budget; installing one more pack pushes the listing to 25,293 tokens, 12.6 times the allowance, and 166 skills lose their description.">
+  <title>skillmeter — two packs fit in the budget, three do not</title>
+
+  <style>
+    .t    { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+            font-size: 14.5px; white-space: pre; }
+    .fg   { fill: #c9d1d9; }
+    .dim  { fill: #8b949e; }
+    .cmd  { fill: #58a6ff; }
+    .ok   { fill: #3fb950; }
+    .warn { fill: #d29922; }
+    .bad  { fill: #f85149; }
+    .hd   { font-weight: 700; }
+
+    /* Two scenes cross-fading in place. Declarative CSS only — no script — so this
+       still animates when GitHub serves the file through its image proxy. */
+    .scene { opacity: 0; }
+    .a     { animation: sceneA 13s infinite; }
+    .a-out { animation: sceneAOut 13s infinite; }
+    .b     { animation: sceneB 13s infinite; }
+    .b-out { animation: sceneBOut 13s infinite; }
+
+    @keyframes sceneA    { 0%,1%  {opacity:0} 4%,44%  {opacity:1} 48%,100% {opacity:0} }
+    @keyframes sceneAOut { 0%,7%  {opacity:0} 10%,44% {opacity:1} 48%,100% {opacity:0} }
+    @keyframes sceneB    { 0%,50% {opacity:0} 53%,95% {opacity:1} 99%,100% {opacity:0} }
+    @keyframes sceneBOut { 0%,58% {opacity:0} 61%,95% {opacity:1} 99%,100% {opacity:0} }
+
+    /* Anyone who has asked the OS for less motion gets the punchline, held still. */
+    @media (prefers-reduced-motion: reduce) {
+      .a, .a-out { animation: none; opacity: 0; }
+      .b, .b-out { animation: none; opacity: 1; }
+    }
+  </style>
+
+  <rect x="0.5" y="0.5" width="599" height="345" rx="10" fill="#0d1117" stroke="#30363d"/>
+  <path d="M0.5 10.5a10 10 0 0 1 10-10h579a10 10 0 0 1 10 10V35H0.5z" fill="#161b22"/>
+  <line x1="0.5" y1="35" x2="599.5" y2="35" stroke="#30363d"/>
+  <circle cx="20" cy="18" r="5.5" fill="#ff5f56"/>
+  <circle cx="40" cy="18" r="5.5" fill="#ffbd2e"/>
+  <circle cx="60" cy="18" r="5.5" fill="#27c93f"/>
+  <text class="t dim" x="300" y="23" text-anchor="middle" font-size="12.5">skillmeter</text>
+
+  <!-- Scene A: two packs, one token of headroom -->
+  <g class="scene a">
+    <text class="t cmd" x="24" y="70">$ skillmeter</text>
+  </g>
+  <g class="scene a-out">
+    <text class="t fg"   x="24" y="116">  32 skills   <tspan class="ok hd">1,999</tspan> tokens of listing metadata</text>
+    <text class="t dim"  x="24" y="139">  budget: 2,000 tokens  (1.0 % of a 200,000-token window)</text>
+    <text class="t ok"   x="24" y="185">  Within budget. 1 token of headroom (0% remaining).</text>
+    <text class="t warn" x="24" y="208">  Close to the edge — the next pack you install will</text>
+    <text class="t warn" x="24" y="231">  start evicting skills.</text>
+  </g>
+
+  <!-- Scene B: one more pack, and most of the listing goes dark -->
+  <g class="scene b">
+    <text class="t cmd" x="24" y="70">$ git clone …/managedcode/dotnet-skills</text>
+    <text class="t cmd" x="24" y="93">$ skillmeter</text>
+  </g>
+  <g class="scene b-out">
+    <text class="t fg"     x="24" y="139">  207 skills   <tspan class="bad hd">25,293</tspan> tokens of listing metadata</text>
+    <text class="t dim"    x="24" y="162">  budget: 2,000 tokens  (1.0 % of a 200,000-token window)</text>
+    <text class="t bad hd" x="24" y="208">  OVER BUDGET by 23,293 tokens — 12.6x</text>
+    <text class="t fg"     x="24" y="254">  41 skills keep their description.</text>
+    <text class="t bad"    x="24" y="277">  <tspan class="bad hd">166 go dark</tspan> — a name it cannot route to.</text>
+  </g>
+
+  <text class="t dim" x="24" y="325" font-size="11.5">o200k_base — a proxy for Claude's tokenizer, not an exact match</text>
+</svg>
