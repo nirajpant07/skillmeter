@@ -1,0 +1,130 @@
+name: 'skillmeter'
+description: 'Measure what your agent skills cost in context, and gate a pull request on it.'
+author: 'Niraj Pant'
+
+branding:
+  icon: 'bar-chart-2'
+  color: 'blue'
+
+inputs:
+  path:
+    description: 'Directory to scan. Defaults to the standard agent locations in the workspace.'
+    required: false
+    default: ''
+  fail-on:
+    description: 'Exit 1 if listing metadata exceeds this many tokens.'
+    required: false
+    default: ''
+  fail-over-budget:
+    description: 'Exit 1 if the listing exceeds the computed budget.'
+    required: false
+    default: 'false'
+  strict:
+    description: 'Exit 1 if any path could not be read, so an incomplete scan cannot pass.'
+    required: false
+    default: 'false'
+  window:
+    description: 'Context window in tokens.'
+    required: false
+    default: '200000'
+  fraction:
+    description: 'Share of the window reserved for the skill listing.'
+    required: false
+    default: '0.01'
+  version:
+    description: 'skillmeter version to use. Pin this for reproducible runs.'
+    required: false
+    default: '0.1.0'
+  summary:
+    description: 'Write the report to the job summary.'
+    required: false
+    default: 'true'
+
+outputs:
+  metadata-tokens:
+    description: 'Total listing metadata tokens — the cost paid on every session.'
+    value: ${{ steps.run.outputs.metadata-tokens }}
+  budget-multiple:
+    description: 'Listing cost as a multiple of the budget. 1.0 is exactly at budget.'
+    value: ${{ steps.run.outputs.budget-multiple }}
+  skills-going-dark:
+    description: 'Skills that lose their description, best case.'
+    value: ${{ steps.run.outputs.skills-going-dark }}
+  over-budget:
+    description: 'true when the listing exceeds the budget.'
+    value: ${{ steps.run.outputs.over-budget }}
+  json:
+    description: 'Path to the full --json report.'
+    value: ${{ steps.run.outputs.json }}
+
+runs:
+  using: composite
+  steps:
+    # Downloads the release binary rather than requiring .NET or Node on the
+    # runner. skillmeter is a single self-contained NativeAOT executable, which is
+    # the whole reason this Action needs no toolchain step.
+    - name: Install skillmeter
+      shell: bash
+      run: |
+        set -euo pipefail
+        V="${{ inputs.version }}"
+        case "${RUNNER_OS}-${RUNNER_ARCH}" in
+          Linux-X64)    RID=linux-x64;   EXT=tar.gz ;;
+          Linux-ARM64)  RID=linux-arm64; EXT=tar.gz ;;
+          macOS-X64)    RID=osx-x64;     EXT=tar.gz ;;
+          macOS-ARM64)  RID=osx-arm64;   EXT=tar.gz ;;
+          Windows-X64)  RID=win-x64;     EXT=zip ;;
+          Windows-ARM64) RID=win-arm64;  EXT=zip ;;
+          *) echo "::error::unsupported runner ${RUNNER_OS}-${RUNNER_ARCH}"; exit 1 ;;
+        esac
+
+        url="https://github.com/nirajpant07/skillmeter/releases/download/v${V}/skillmeter-${V}-${RID}.${EXT}"
+        echo "downloading $url"
+        mkdir -p "${RUNNER_TEMP}/skillmeter"
+        curl -fsSL "$url" -o "${RUNNER_TEMP}/skillmeter/pkg.${EXT}"
+
+        cd "${RUNNER_TEMP}/skillmeter"
+        if [ "$EXT" = "zip" ]; then unzip -oq "pkg.zip"; else tar -xzf "pkg.tar.gz"; fi
+        chmod +x skillmeter 2>/dev/null || true
+        echo "${RUNNER_TEMP}/skillmeter" >> "$GITHUB_PATH"
+
+    - name: Run skillmeter
+      id: run
+      shell: bash
+      run: |
+        set -uo pipefail
+        args=()
+        [ -n "${{ inputs.path }}" ] && args+=("${{ inputs.path }}")
+        [ -n "${{ inputs.fail-on }}" ] && args+=(--fail-on "${{ inputs.fail-on }}")
+        [ "${{ inputs.fail-over-budget }}" = "true" ] && args+=(--fail-over-budget)
+        [ "${{ inputs.strict }}" = "true" ] && args+=(--strict)
+        args+=(--window "${{ inputs.window }}" --fraction "${{ inputs.fraction }}")
+
+        out="${RUNNER_TEMP}/skillmeter-report.json"
+
+        # The JSON run carries no gate, so it always succeeds and always produces a
+        # report. The gating run follows, and its exit code is the step's.
+        skillmeter "${args[@]}" --json > "$out" 2>/dev/null || true
+        echo "json=$out" >> "$GITHUB_OUTPUT"
+
+        if [ -s "$out" ]; then
+          node -e '
+            const d = require(process.argv[1]), fs = require("fs");
+            const o = [
+              ["metadata-tokens", d.totals.metadataTokens],
+              ["budget-multiple", d.budget.budgetMultiple],
+              ["skills-going-dark", d.budget.skillsGoingDark],
+              ["over-budget", d.budget.overBudget],
+            ].map(([k, v]) => `${k}=${v}`).join("\n");
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, o + "\n");
+          ' "$out"
+        fi
+
+        report=$(skillmeter "${args[@]}" 2>&1); code=$?
+        echo "$report"
+
+        if [ "${{ inputs.summary }}" = "true" ]; then
+          { echo '### skillmeter'; echo '```'; echo "$report"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+        fi
+
+        exit $code

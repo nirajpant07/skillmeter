@@ -68,6 +68,27 @@ Gate a pull request on it:
 - run: npx skillmeter --fail-on 2000
 ```
 
+Or with the action, which needs no runtime on the runner — it fetches the native binary directly:
+
+```yaml
+- uses: nirajpant07/skillmeter@v0.1.0
+  with:
+    fail-on: 2000
+    strict: true
+```
+
+It exposes `metadata-tokens`, `budget-multiple`, `skills-going-dark` and `over-budget` as outputs, and writes the report to the job summary.
+
+Pack maintainers can put the number in their own README with a badge — green under budget, red over, straight from the outputs:
+
+```yaml
+- uses: nirajpant07/skillmeter@v0.1.0
+  id: sm
+- run: |
+    echo "https://img.shields.io/badge/skill%20listing-${{ steps.sm.outputs.metadata-tokens }}%20%2F%202000%20tokens-${{
+      steps.sm.outputs.over-budget == 'true' && 'critical' || 'success' }}"
+```
+
 Exit codes: `0` ok, `1` gate failed, `2` usage error, `3` runtime error.
 
 Note that `1` is only ever returned when you ask for a gate — with `--fail-on`, `--fail-over-budget` or `--strict`. A plain `skillmeter` run reports and exits `0` however far over budget you are.
@@ -90,14 +111,16 @@ Skills load in three layers. Most tools count none of them; `skillmeter` counts 
 
 Only the first is capped, and it is the one nobody watches. Measured across four popular packs: 235 skills, of which 231 enter the listing — **26,592 tokens against a 2,000-token budget, 13.3x over**, with 503,605 more tokens of bodies and 1,257,905 tokens of bundled resources behind them. (Skills marked `disable-model-invocation` never enter the listing and are excluded.)
 
-> **Provenance.** All figures on this page come from packs cloned **2026-07-25**:
+> **Provenance.** All figures on this page come from packs re-measured **2026-07-27**:
 > `obra/superpowers` (`3dcbd5c`), `anthropics/skills` (`b29e7cf`),
-> `addyosmani/agent-skills` (`ff2df4c`), `managedcode/dotnet-skills` (`902c435`).
+> `addyosmani/agent-skills` (`7829ffd`), `managedcode/dotnet-skills` (`902c435`).
 > The paragraph above measures all **four**. The demo at the top of this page measures
 > **three** of them — it omits `agent-skills` — which is why it reads 25,293 tokens and
 > 12.6x rather than 26,592 and 13.3x. Both are correct; they are different pack sets,
-> not different days. `dotnet-skills` is actively maintained, so a fresh clone will
-> shift these totals slightly.
+> not different days.
+>
+> Per-pack numbers, refreshed weekly against current pack HEADs, are in the
+> **[skill pack cost index](docs/cost-index.md)**.
 
 ## Cross-agent
 

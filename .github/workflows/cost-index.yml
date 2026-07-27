@@ -1,0 +1,69 @@
+# Regenerates docs/cost-index.md against fresh clones of the tracked packs.
+#
+# Packs move. addyosmani/agent-skills changed SHA within two days of the first
+# measurement, shifting the four-pack total by ~400 tokens — a hand-maintained
+# table would have been quietly wrong within a week.
+name: cost-index
+
+on:
+  schedule:
+    - cron: '17 6 * * 1'   # Mondays, 06:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: cost-index
+  cancel-in-progress: false
+
+jobs:
+  regenerate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # The published binary, not a local build: the index should reflect what a
+      # reader would get by installing the tool, and it pins a version so a
+      # number never moves because the measuring tool changed underneath it.
+      - name: Install skillmeter
+        shell: bash
+        run: |
+          set -euo pipefail
+          V=0.1.0
+          curl -fsSL "https://github.com/nirajpant07/skillmeter/releases/download/v${V}/skillmeter-${V}-linux-x64.tar.gz" \
+            -o /tmp/sm.tar.gz
+          mkdir -p /tmp/sm && tar -xzf /tmp/sm.tar.gz -C /tmp/sm
+          chmod +x /tmp/sm/skillmeter
+          echo /tmp/sm >> "$GITHUB_PATH"
+          /tmp/sm/skillmeter --version
+
+      - name: Regenerate
+        shell: bash
+        run: ./scripts/build-cost-index.sh
+
+      - name: Commit if changed
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- docs/cost-index.md; then
+            echo "no change to the index"
+            exit 0
+          fi
+
+          # Report what moved in the run log, so a drift is visible without
+          # opening the diff.
+          echo "::group::diff"; git diff --stat -- docs/cost-index.md; echo "::endgroup::"
+
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/cost-index.md
+          git commit -m "cost-index: refresh against current pack HEADs
+
+          Regenerated automatically. Every figure is a fresh scan; each pack's
+          commit SHA is recorded in the table."
+          git push
