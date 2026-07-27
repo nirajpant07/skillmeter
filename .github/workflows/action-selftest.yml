@@ -1,0 +1,69 @@
+# TEMPORARY. Proves action.yml works on all three OSes before it is tagged for
+# public use. Delete once a versioned action tag exists and is verified.
+name: action-selftest
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  selftest:
+    name: action (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build a corpus to measure
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p _fixture/alpha _fixture/beta
+          printf -- '---\nname: alpha\ndescription: does alpha things\n---\nbody\n' > _fixture/alpha/SKILL.md
+          printf -- '---\nname: beta\ndescription: does beta things\n---\nbody\n' > _fixture/beta/SKILL.md
+
+      # `./` resolves the action from this checkout, so the self-test does not
+      # depend on a tag existing yet.
+      - name: Run the action (under budget)
+        id: under
+        uses: ./
+        with:
+          path: _fixture
+          fail-on: 100000
+
+      - name: Assert outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "metadata-tokens   = ${{ steps.under.outputs.metadata-tokens }}"
+          echo "budget-multiple   = ${{ steps.under.outputs.budget-multiple }}"
+          echo "skills-going-dark = ${{ steps.under.outputs.skills-going-dark }}"
+          echo "over-budget       = ${{ steps.under.outputs.over-budget }}"
+
+          [ -n "${{ steps.under.outputs.metadata-tokens }}" ] || { echo "::error::no metadata-tokens output"; exit 1; }
+          [ "${{ steps.under.outputs.over-budget }}" = "false" ] || { echo "::error::expected under budget"; exit 1; }
+          [ -s "${{ steps.under.outputs.json }}" ] || { echo "::error::no json report"; exit 1; }
+
+      # The gate must actually fail the step, which is the entire reason the
+      # action exists. continue-on-error lets the run proceed so we can assert it.
+      - name: Run the action (gate must trip)
+        id: over
+        continue-on-error: true
+        uses: ./
+        with:
+          path: _fixture
+          fail-on: 0
+
+      - name: Assert the gate tripped
+        shell: bash
+        run: |
+          if [ "${{ steps.over.outcome }}" != "failure" ]; then
+            echo "::error::--fail-on 0 should have failed the step, got '${{ steps.over.outcome }}'"
+            exit 1
+          fi
+          echo "gate correctly failed the step"
