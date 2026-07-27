@@ -67,3 +67,28 @@ jobs:
             exit 1
           fi
           echo "gate correctly failed the step"
+
+  # Resolves the action the way a stranger would, by public ref rather than `./`.
+  # This is what the README tells people to write, so it is what has to work.
+  public-ref:
+    name: public @v1 reference
+    runs-on: ubuntu-latest
+    steps:
+      - name: Build a corpus to measure
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p _fixture/alpha
+          printf -- '---\nname: alpha\ndescription: does alpha things\n---\nbody\n' > _fixture/alpha/SKILL.md
+
+      - uses: nirajpant07/skillmeter@v1
+        id: pub
+        with:
+          path: _fixture
+
+      - name: Assert it produced a measurement
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "metadata-tokens = ${{ steps.pub.outputs.metadata-tokens }}"
+          [ -n "${{ steps.pub.outputs.metadata-tokens }}" ] || { echo "::error::@v1 produced no output"; exit 1; }
