@@ -1,6 +1,6 @@
 {
   "name": "skillmeter",
-  "version": "0.1.0",
+  "version": "0.2.0-dev",
   "description": "Measure what your agent skills cost in context. Offline, cross-agent, CI-friendly.",
   "keywords": [
     "agent-skills",
@@ -32,11 +32,11 @@
     "node": ">=18"
   },
   "optionalDependencies": {
-    "@niraj.pant/skillmeter-linux-x64": "0.1.0",
-    "@niraj.pant/skillmeter-linux-arm64": "0.1.0",
-    "@niraj.pant/skillmeter-darwin-x64": "0.1.0",
-    "@niraj.pant/skillmeter-darwin-arm64": "0.1.0",
-    "@niraj.pant/skillmeter-win32-x64": "0.1.0",
-    "@niraj.pant/skillmeter-win32-arm64": "0.1.0"
+    "@niraj.pant/skillmeter-linux-x64": "0.2.0-dev",
+    "@niraj.pant/skillmeter-linux-arm64": "0.2.0-dev",
+    "@niraj.pant/skillmeter-darwin-x64": "0.2.0-dev",
+    "@niraj.pant/skillmeter-darwin-arm64": "0.2.0-dev",
+    "@niraj.pant/skillmeter-win32-x64": "0.2.0-dev",
+    "@niraj.pant/skillmeter-win32-arm64": "0.2.0-dev"
   }
 }

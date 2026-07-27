@@ -1,15 +1,20 @@
 # skillmeter
 
-**Your agent skills cost context before you type a word. This measures how much.**
+**Claude Code gives every skill you install a shared 2,000-token budget — about 1% of
+the context window. Two popular packs use 1,999 of it.**
 
-Claude Code reserves about **1% of the context window** for the skill listing — roughly **2,000 tokens** to hold the name and description of *every* skill you have installed. Go over, and descriptions for the least-used skills get dropped. The agent still sees the name. It just can't tell what the skill is for any more.
+That budget holds the name and description of *every* installed skill, and you pay it
+on every session before you type a word. Go over and descriptions start getting
+dropped. The agent still sees the name. It just can't tell what the skill is for.
 
 <p align="center">
   <img src="docs/demo.svg" width="600"
-       alt="Two skill packs sit at 1,999 tokens against a 2,000-token budget. Installing one more pack pushes the listing to 25,293 tokens — 12.6x the allowance — and 166 skills lose their description.">
+       alt="Two skill packs sit at 1,999 tokens against a 2,000-token budget. Installing a third pack pushes the listing to 25,293 tokens — 12.6x the allowance — and 166 skills lose their description.">
 </p>
 
-Two of the most popular skill packs in existence put you at **1,999 tokens against a 2,000-token budget**:
+<p align="center">
+  <sub><b>obra/superpowers + anthropics/skills</b>, then <b>managedcode/dotnet-skills</b> added — three packs, cloned 2026-07-25.</sub>
+</p>
 
 ```
 $ skillmeter
@@ -21,7 +26,7 @@ $ skillmeter
   Close to the edge — the next pack you install will start evicting skills.
 ```
 
-The next pack you install is not free. Here is one real, actively-maintained catalog of 179 skills, 175 of which enter the listing:
+So install one more — a real, actively-maintained catalog of 179 skills:
 
 ```
 $ skillmeter --path ./dotnet-skills
@@ -35,6 +40,8 @@ $ skillmeter --path ./dotnet-skills
   151 go dark — the agent sees a name it cannot route to.
 ```
 
+One 5 MB binary. No runtime, no daemon, no API key, no network — ever.
+
 ## Install
 
 ```bash
@@ -43,7 +50,7 @@ npm install -g skillmeter           # npm
 dotnet tool install -g skillmeter   # NuGet
 ```
 
-A single self-contained native binary — about 5 MB, no runtime to install, **~3 ms cold start**. No daemon, no background process, no API key, and no network access at any point.
+Cold start is about **3 ms**.
 
 ## Use
 
@@ -81,7 +88,16 @@ Skills load in three layers. Most tools count none of them; `skillmeter` counts 
 | **activation** | when a skill fires | the SKILL.md body |
 | **resources** | on demand | bundled `references/` and `assets/` |
 
-Only the first is capped, and it is the one nobody watches. Measured across four popular packs: 235 skills, of which 230 enter the listing — **26,525 tokens against a 2,000-token budget, 13.3x over**, with 502,247 more tokens of bodies and 1,256,645 tokens of bundled resources behind them. (Skills marked `disable-model-invocation` never enter the listing and are excluded.)
+Only the first is capped, and it is the one nobody watches. Measured across four popular packs: 235 skills, of which 231 enter the listing — **26,592 tokens against a 2,000-token budget, 13.3x over**, with 503,605 more tokens of bodies and 1,257,905 tokens of bundled resources behind them. (Skills marked `disable-model-invocation` never enter the listing and are excluded.)
+
+> **Provenance.** All figures on this page come from packs cloned **2026-07-25**:
+> `obra/superpowers` (`3dcbd5c`), `anthropics/skills` (`b29e7cf`),
+> `addyosmani/agent-skills` (`ff2df4c`), `managedcode/dotnet-skills` (`902c435`).
+> The paragraph above measures all **four**. The demo at the top of this page measures
+> **three** of them — it omits `agent-skills` — which is why it reads 25,293 tokens and
+> 12.6x rather than 26,592 and 13.3x. Both are correct; they are different pack sets,
+> not different days. `dotnet-skills` is actively maintained, so a fresh clone will
+> shift these totals slightly.
 
 ## Cross-agent
 
