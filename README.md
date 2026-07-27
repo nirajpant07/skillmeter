@@ -71,7 +71,7 @@ Gate a pull request on it:
 Or with the action, which needs no runtime on the runner — it fetches the native binary directly:
 
 ```yaml
-- uses: nirajpant07/skillmeter@v0.1.0
+- uses: nirajpant07/skillmeter@v1
   with:
     fail-on: 2000
     strict: true
@@ -82,7 +82,7 @@ It exposes `metadata-tokens`, `budget-multiple`, `skills-going-dark` and `over-b
 Pack maintainers can put the number in their own README with a badge — green under budget, red over, straight from the outputs:
 
 ```yaml
-- uses: nirajpant07/skillmeter@v0.1.0
+- uses: nirajpant07/skillmeter@v1
   id: sm
 - run: |
     echo "https://img.shields.io/badge/skill%20listing-${{ steps.sm.outputs.metadata-tokens }}%20%2F%202000%20tokens-${{

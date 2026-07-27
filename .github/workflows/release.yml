@@ -21,7 +21,10 @@ on:
         type: boolean
         default: true
   push:
-    tags: ['v*']
+    # Semver-shaped tags only. The action is published under a moving major tag
+    # (`v1`) so consumers can pin `uses: …@v1`, and that tag must not trigger a
+    # release — `v*` would have matched it and published to both registries.
+    tags: ['v*.*.*']
 
 permissions:
   contents: read
