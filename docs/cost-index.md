@@ -8,11 +8,11 @@ Every figure is a real scan of a fresh clone; each pack's commit SHA is recorded
 any row can be reproduced. Measured with skillmeter `0.1.0` against the default
 budget of **2,000 tokens** (1% of a 200,000-token window).
 
-Last regenerated: **2026-07-27**
+Last regenerated: **2026-08-03**
 
 | pack | commit | skills | listed | listing tokens | vs budget | go dark | body | resources |
 |---|---|--:|--:|--:|--:|--:|--:|--:|
-| [obra/superpowers](https://github.com/obra/superpowers) | `3dcbd5c` | 14 | 14 | **361** | 0.18x | 0 | 28,916 | 35,242 |
+| [obra/superpowers](https://github.com/obra/superpowers) | `44c9b2d` | 14 | 14 | **361** | 0.18x | 0 | 28,916 | 35,242 |
 | [anthropics/skills](https://github.com/anthropics/skills) | `b29e7cf` | 18 | 18 | **1,638** | 0.82x | 0 | 53,095 | 227,162 |
 | [addyosmani/agent-skills](https://github.com/addyosmani/agent-skills) | `7829ffd` | 24 | 24 | **1,299** | 0.65x | 0 | 64,693 | 6,731 |
 | [managedcode/dotnet-skills](https://github.com/managedcode/dotnet-skills) | `902c435` | 179 | 175 | **23,294** | 11.65x | 151 | 357,832 | 988,770 |
