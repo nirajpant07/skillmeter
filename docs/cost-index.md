@@ -8,26 +8,26 @@ Every figure is a real scan of a fresh clone; each pack's commit SHA is recorded
 any row can be reproduced. Measured with skillmeter `0.1.0` against the default
 budget of **2,000 tokens** (1% of a 200,000-token window).
 
-Last regenerated: **2026-09-28**
+Last regenerated: **2026-10-05**
 
 | pack | commit | skills | listed | listing tokens | vs budget | go dark | body | resources |
 |---|---|--:|--:|--:|--:|--:|--:|--:|
 | [obra/superpowers](https://github.com/obra/superpowers) | `8ca22db` | 15 | 15 | **465** | 0.23x | 0 | 38,670 | 45,494 |
-| [anthropics/skills](https://github.com/anthropics/skills) | `3337550` | 20 | 20 | **2,047** | 1.02x | 1 | 60,715 | 296,307 |
-| [addyosmani/agent-skills](https://github.com/addyosmani/agent-skills) | `2686b62` | 25 | 25 | **1,776** | 0.89x | 0 | 74,925 | 12,602 |
-| [managedcode/dotnet-skills](https://github.com/managedcode/dotnet-skills) | `d51d6c0` | 184 | 181 | **23,633** | 11.82x | 157 | 399,298 | 1,287,880 |
+| [anthropics/skills](https://github.com/anthropics/skills) | `683bc88` | 20 | 20 | **2,047** | 1.02x | 1 | 65,254 | 416,437 |
+| [addyosmani/agent-skills](https://github.com/addyosmani/agent-skills) | `1401c8b` | 25 | 25 | **1,776** | 0.89x | 0 | 73,778 | 15,186 |
+| [managedcode/dotnet-skills](https://github.com/managedcode/dotnet-skills) | `4fa9c32` | 190 | 187 | **24,431** | 12.22x | 163 | 414,033 | 1,318,592 |
 
 ## All of them installed together
 
 | | |
 |---|--:|
-| skills found | 244 |
-| entering the listing | 241 |
-| **listing metadata** | **27,921 tokens** |
+| skills found | 250 |
+| entering the listing | 247 |
+| **listing metadata** | **28,719 tokens** |
 | budget | 2,000 tokens |
-| over budget by | 25,921 tokens (13.96x) |
+| over budget by | 26,719 tokens (14.36x) |
 | keep their description | 45 |
-| **go dark** | **196** |
+| **go dark** | **202** |
 
 A skill that goes dark keeps its name in the listing but loses its description, so
 the agent sees a name it cannot route to.
