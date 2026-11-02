@@ -8,14 +8,14 @@ Every figure is a real scan of a fresh clone; each pack's commit SHA is recorded
 any row can be reproduced. Measured with skillmeter `0.1.0` against the default
 budget of **2,000 tokens** (1% of a 200,000-token window).
 
-Last regenerated: **2026-10-26**
+Last regenerated: **2026-11-02**
 
 | pack | commit | skills | listed | listing tokens | vs budget | go dark | body | resources |
 |---|---|--:|--:|--:|--:|--:|--:|--:|
 | [obra/superpowers](https://github.com/obra/superpowers) | `2ce8aa1` | 15 | 15 | **474** | 0.24x | 0 | 32,037 | 50,583 |
-| [anthropics/skills](https://github.com/anthropics/skills) | `dbd4588` | 20 | 20 | **2,047** | 1.02x | 1 | 65,774 | 453,140 |
-| [addyosmani/agent-skills](https://github.com/addyosmani/agent-skills) | `aeac41d` | 25 | 25 | **1,811** | 0.91x | 0 | 74,247 | 15,186 |
-| [managedcode/dotnet-skills](https://github.com/managedcode/dotnet-skills) | `4adf7cb` | 201 | 197 | **25,219** | 12.61x | 172 | 445,845 | 1,332,266 |
+| [anthropics/skills](https://github.com/anthropics/skills) | `ca45fc4` | 20 | 20 | **2,047** | 1.02x | 1 | 66,296 | 461,731 |
+| [addyosmani/agent-skills](https://github.com/addyosmani/agent-skills) | `301b02b` | 25 | 25 | **1,892** | 0.95x | 0 | 74,957 | 15,274 |
+| [managedcode/dotnet-skills](https://github.com/managedcode/dotnet-skills) | `497cc9a` | 201 | 197 | **25,219** | 12.61x | 172 | 446,217 | 1,332,266 |
 
 ## All of them installed together
 
@@ -23,9 +23,9 @@ Last regenerated: **2026-10-26**
 |---|--:|
 | skills found | 261 |
 | entering the listing | 257 |
-| **listing metadata** | **29,551 tokens** |
+| **listing metadata** | **29,632 tokens** |
 | budget | 2,000 tokens |
-| over budget by | 27,551 tokens (14.78x) |
+| over budget by | 27,632 tokens (14.82x) |
 | keep their description | 45 |
 | **go dark** | **212** |
 
